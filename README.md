@@ -170,11 +170,7 @@ Source files are loaded as Prolog terms.
 
 ## Operator
 
-The guard separator `|` is used as an infix operator:
-
-```prolog
-:- op(950, xfx, '|').
-```
+The guard separator `|`/2 is used as an infix operator:
 
 ---
 

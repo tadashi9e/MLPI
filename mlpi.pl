@@ -31,6 +31,7 @@ load_terms([], Terms-Terms) :- !.
 load_terms([SourceFile|SourceFiles], Terms-Terms2) :-
     open(SourceFile, read, Stream, [encoding(utf8)]),
     read_all_terms(Stream, Terms-Terms1),
+    close(Stream),
     load_terms(SourceFiles, Terms1-Terms2).
 read_all_terms(Stream, Terms-Terms2) :-
     read_term(Stream, Term,
@@ -87,11 +88,8 @@ deterministic_call(Head) :-
 
 check_guard_and_execute(Head, Copy, GuardBody) :-
     Head = Copy,
-    ( GuardBody = (Guard | Body) ->
-      check(Guard)
-      -> trust(Body, Head)
-    ;
-    trust(GuardBody, Head) ).
+    ( GuardBody = (Guard | Body) -> check(Guard), trust(Body, Head)
+    ; trust(GuardBody, Head) ).
 
 check(true) :- !.
 check((A, B)) :- !, deterministic_call(A), check(B).
