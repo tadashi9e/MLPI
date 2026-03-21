@@ -24,6 +24,20 @@ In MLP:
 ./mlpi.pl <SourceFile...> [-- <Args>]
 ```
 
+### Requirements
+
+SWI-Prolog (`swipl`).
+
+Example (Ubuntu/Debian):
+
+```bash
+sudo apt update
+sudo apt install -y swi-prolog
+swipl --version
+```
+
+I tested on "SWI-Prolog version 9.0.4 for x86_64-linux".
+
 ### Example
 
 ```bash
