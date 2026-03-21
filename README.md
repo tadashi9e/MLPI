@@ -27,7 +27,7 @@ In MLP:
 ### Example
 
 ```bash
-./mlpi.pl builtin.mlp primes.mlp -- 1000
+./mlpi.pl primes.mlp builtin.mlp -- 1000
 ```
 
 The program must define:

@@ -9,8 +9,8 @@ main(Argv) :-
     load_terms(SourceFiles, Terms-[]), !,
     mlp(Terms, Args).
 
-parse_args(Argv, SourceFiles, Args) :-
-    phrase(opt_parse_dcg(SourceFiles, Args), Argv, []).
+parse_args([Argv0 | Argv], SourceFiles, [Argv0 | Args]) :-
+    phrase(opt_parse_dcg(SourceFiles, Args), [Argv0 | Argv], []).
 opt_parse_dcg([], []) --> [].
 opt_parse_dcg([], _) -->
     ['-h'], !,

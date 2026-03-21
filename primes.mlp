@@ -1,9 +1,9 @@
 % -*- mode: prolog; coding:utf-8 -*-
-main([Arg|_]) :-
+main([_, Arg]) :-
     term_to_atom(N, Arg), integer(N)
     | primes(N, Ps), printstream(Ps,St), iostream(St).
-main(_) :-
-    iostream([write('usage: primes.mlp <N>'), nl]).
+main([Program|_]) :-
+    iostream([write('usage: '), write(Program), write(' <N>'), nl]).
 
 primes(Max, Ps) :- true | gen(2, Max, Ns), sift(Ns, Ps).
 gen(N0, Max, Ns0) :-
