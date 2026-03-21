@@ -40,8 +40,16 @@ I tested on "SWI-Prolog version 9.0.4 for x86_64-linux".
 
 ### Example
 
+Generate prime numbers:
+
 ```bash
-./mlpi.pl primes.mlp builtin.mlp -- 1000
+./mlpi.pl samples/primes.mlp builtin.mlp -- 1000
+```
+
+Generate N-Queen solutions:
+
+```bash
+./mlpi.pl samples/queen.mlp builtin.mlp -- 10
 ```
 
 The program must define:

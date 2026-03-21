@@ -69,6 +69,7 @@ deterministic_call((A, B)) :- !, deterministic_call(A), deterministic_call(B).
 deterministic_call(true) :- !.
 deterministic_call(var(A)) :- !, var(A).
 deterministic_call(nonvar(A)) :- !, nonvar(A).
+deterministic_call(integer(I)) :- !, integer(I).
 deterministic_call(A is B) :- !, A is B.
 deterministic_call(A = B) :- !, A = B.
 deterministic_call(A =\= B) :- !, A =\= B.
@@ -77,8 +78,6 @@ deterministic_call(A < B) :- !, A < B.
 deterministic_call(A =< B) :- !, A =< B.
 deterministic_call(A > B) :- !, A > B.
 deterministic_call(A >= B) :- !, A >= B.
-deterministic_call(integer(I)) :- !, integer(I).
-deterministic_call(term_to_atom(T, A)) :- !, term_to_atom(T, A).
 deterministic_call(prolog(P)) :- !, call(P).
 % compound predicate
 deterministic_call(Head) :-
