@@ -1,0 +1,8 @@
+% -*- mode: prolog; coding:utf-8 -*-
+% :- op(950, xfx, '|').
+iostream([]).
+iostream([C|Cs]) :- iostream(C, Cs).
+iostream(write(P), Cmds) :- prolog(write(P)) | iostream(Cmds).
+iostream(nl, Cmds) :- prolog(nl) | iostream(Cmds).
+iostream(ttyflush, Cmds) :- prolog(ttyflush) | iostream(Cmds).
+iostream(told, _).
