@@ -31,7 +31,7 @@ main([_,Arg]) :-
     go(N, X),
     report_results(Os-[], X), iostream(Os).
 main([Prog|_]) :-
-    outstream([write('usage: '), write(Prog), writeln(' <N>')]).
+    iostream([write('usage: '), write(Prog), writeln(' <N>')]).
 
 report_results(Os-Os2, X) :-
     report_results(Os-Os2, X, 1).
