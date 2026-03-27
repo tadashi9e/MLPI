@@ -1,0 +1,49 @@
+% -*- mode: prolog; coding:utf-8 -*-
+% demand driven version
+main([_, Arg]) :-
+    term_to_atom(N, Arg), integer(N) |
+    print_primes(N).
+main([Program|_]) :-
+    iostream([write('usage: '), write(Program), write(' <N>'), nl]).
+
+print_primes(Max) :-
+    true |
+    reserve(50, Ns0), Ps = [2|Ps1],
+    iostream([write('2')]),
+    print_primes_loop(3, Max, Ns0-_, Ps, Ps1),
+    iostream([writeln('.')]).
+
+print_primes_loop(N0, Max, _, _, _) :-
+    N0 > Max | true.
+print_primes_loop(N0, Max, Ns0-Ns2, Ps, Ps0) :-
+    N0 =< Max |
+    gen(N0-N1, Max, Ns0-Ns1),
+    filter(Ps, Ns0, Ps0-Ps1),
+    print(Ps0),
+    reserve(50, Ns1),
+    print_primes_loop(N1, Max, Ns1-Ns2, Ps, Ps1).
+
+reserve(0, _).
+reserve(N, Stream) :- Stream = [_|Stream1], N1 is N - 1, reserve(N1,Stream1).
+
+gen(N0-N2, _, Ns0-Ns2) :- var(Ns0) | N2 = N0, Ns2 = Ns0.
+gen(N0-N2, Max, Ns0-Ns2) :-
+    N0 > Max | N2 = N0, Ns2 = Ns0.
+gen(N0-N2, Max, Ns0-Ns2) :-
+    N0 =< Max | Ns0 = [N0|Ns1], N1 is N0 + 2, gen(N1-N2, Max, Ns1-Ns2).
+
+filter(_, Ns0, Ps0-Ps1) :-
+    var(Ns0) | Ps0 = Ps1.
+filter(Ps, [N|Ns0], Ps0-Ps2) :-
+    is_prime(N, Ps) | Ps0 = [N|Ps1], filter(Ps, Ns0, Ps1-Ps2).
+filter(Ps, [_|Ns0], Ps0-Ps1) :-
+    filter(Ps, Ns0, Ps0-Ps1).
+
+is_prime(_, Ps) :- var(Ps) | true.
+is_prime(_, [P|_]) :- var(P) | true.
+is_prime(N, [_|_]) :- var(N) | true.
+is_prime(N, [P|Ps]) :- N mod P =\= 0, is_prime(N, Ps) | true.
+
+print(Ps) :- var(Ps) | iostream([nl]).
+print([P|_]) :- var(P) | iostream([nl]).
+print([P|Ps]) :- iostream([write(','), write(P)]), print(Ps).
