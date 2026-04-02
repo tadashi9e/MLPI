@@ -1,0 +1,11 @@
+% -*- mode: prolog; coding:utf-8 -*-
+main([_|Args]) :-
+    prints(Stream, ['Hello,'| Args], []),
+    iostream(Stream).
+otherwise.
+main([Program|_]) :-
+    iostream([write('usage: '), write(Program), write(' messages...'), nl]).
+
+prints(Stream) --> [] | Stream = [nl].
+prints(Stream) -->
+    [Word], {Stream = [write(Word), write(' ')|Stream2]}, prints(Stream2) | true.
