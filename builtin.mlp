@@ -1,10 +1,10 @@
 % -*- mode: prolog; coding:utf-8 -*-
 iostream([]).
 iostream([C|Cs]) :- iostream(C, Cs).
-iostream(write(P), Cmds) :- prolog(write(P)) | iostream(Cmds).
-iostream(writeln(P), Cmds) :- prolog(writeln(P)) | iostream(Cmds).
-iostream(nl, Cmds) :- prolog(nl) | iostream(Cmds).
-iostream(ttyflush, Cmds) :- prolog(ttyflush) | iostream(Cmds).
+iostream(write(P), Cmds) :- prolog(write(P)), iostream(Cmds).
+iostream(writeln(P), Cmds) :- prolog(writeln(P)), iostream(Cmds).
+iostream(nl, Cmds) :- prolog(nl), iostream(Cmds).
+iostream(ttyflush, Cmds) :- prolog(ttyflush), iostream(Cmds).
 iostream(told, _).
 iostream(Op, Cmds) :-
     prolog(format(user_error, 'error: unknown iostream operation: ~w~n',
@@ -12,5 +12,5 @@ iostream(Op, Cmds) :-
     iostream(Cmds).
 
 A := B :- prolog(A is B).
-term_to_atom(T, A) :- prolog(term_to_atom(T, A)).
-atom_number(A, N) :- prolog(atom_number(A, N)).
+term_to_atom(T, A) :- prolog(term_to_atom(T, A)) | true.
+atom_number(A, N) :- prolog(atom_number(A, N)) | true.

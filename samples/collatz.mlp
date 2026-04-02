@@ -1,31 +1,30 @@
 % -*- mode: prolog; coding:utf-8 -*-
-main([_Program | Args]) :-
-    Args = [_|_]
-    | parse_args(Args, Ns, Status), run_main(Status, Ns).
-main([Program|_]) :-
-    iostream([write('usage: '), write(Program), write(' <N...>'), nl]).
+collatz(1, Ns) :-
+    Ns = [1].
+collatz(N, Ns) :-
+    N mod 2 =:= 0 | N2 := N / 2, Ns = [N | Ns2], collatz(N2, Ns2).
+otherwise.
+collatz(N, Ns) :-
+    N2 := N * 3 + 1, Ns = [N | Ns2], collatz(N2, Ns2).
 
-run_main(ok, Ns) :-
-    gen_collatz_list(St-_, Ns), iostream(St).
-run_main(error, _).
+printstream([]) --> [nl].
+printstream([N | Ns]) -->
+    [ write(N) ],
+    printstream_rest(Ns).
+printstream_rest([]) -->
+    [nl].
+printstream_rest([N | Ns]) -->
+    [write(','), write(N)],
+    printstream_rest(Ns).
 
-parse_args([], Ns, ok) :- Ns = [].
-parse_args([Arg|Args], Ns, Status) :-
-    term_to_atom(N, Arg), integer(N), N > 0
-    | Ns = [N | Ns2], parse_args(Args, Ns2, Status).
-parse_args([Arg|_], Ns, error) :-
-    Ns = [],
-    iostream([write('invalid argument: '), write(Arg), nl]).
-
-gen_collatz_list(St-St2, []) :-
-    St = [nl, told], St2 = [].
-gen_collatz_list(St-St2, [N | Ns]) :-
-    collatz(St-St1, N),
-    gen_collatz_list(St1-St2, Ns).
-
-collatz(St-St2, N) :-
-    N =:= 1 | St = [write(N), nl | St2].
-collatz(St-St2, N) :-
-    N mod 2 =:= 0 | St = [write(N), write(',') | St1], N2 := N / 2, collatz(St1-St2, N2).
-collatz(St-St2, N) :-
-    true | St = [write(N), write(',') | St1], N2 := N * 3 + 1, collatz(St1-St2, N2).
+collatz_for_each_args([]) --> [].
+collatz_for_each_args([A | As]) -->
+    { atom_number(A, N), collatz(N, Ns) },
+    printstream(Ns),
+    collatz_for_each_args(As).
+main([_ | Args]) :-
+    collatz_for_each_args(Args, Stream, []),
+    iostream(Stream).
+otherwise.
+main([Prog|_]) :-
+    iostream([write('usage: '), write(Prog), writeln(' <N> [<N2> <N3> ...]')]).

@@ -1,0 +1,5 @@
+% -*- mode: prolog; coding:utf-8 -*-
+main([_]) :-
+    test([a, b, c, d], X, []), iostream([writeln(X)]).
+test([]) --> true | [].
+test([X|Y]) --> true | [X], test(Y).

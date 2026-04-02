@@ -1,0 +1,7 @@
+% -*- mode: prolog; coding:utf-8 -*-
+main([_]) :-
+    test(X, [], [a, b, c, d], _), iostream([writeln(X)]).
+test(X, Y) --> [a], test(X, Y2) | Y2 = [a|Y].
+test(X, Y) --> [b], test(X, Y2) | Y2 = [b|Y].
+test(X, Y) --> [c], test(X, Y2) | Y2 = [c|Y].
+test(X, Y) --> [d] | X = [d|Y].

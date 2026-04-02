@@ -1,246 +1,173 @@
-# MLP Interpreter (mlpi.pl)
+# MLP — Minimal Logic Programming
 
-`mlpi.pl` is a reference interpreter for **MLP (Monotonic Logic Programming)** — a deterministic logic programming language without backtracking.
+MLP (Minimal Logic Programming) is a small logic programming language and toolchain built on top of SWI-Prolog.
 
-MLP is based on Guarded Horn Clauses and adopts a **single-assignment, monotonic execution model**, making programs easier to reason about, debug, and extend toward concurrency.
+It provides:
+
+A simple interpreter
+A compiler that generates SWI-Prolog code
+A faster compiler variant with reduced runtime checks
+Support for DCG-style rules
+Support for `freeze`/2-based coroutining
+A syntax inspired by GHC-style guarded clauses (without wait)
+
+MLP is designed to be minimal, readable, and easy to experiment with, while still allowing efficient execution through compilation to Prolog.
 
 ---
 
 ## Overview
 
-In MLP:
+MLP programs (.mlp) are translated into SWI-Prolog programs.
 
-* Execution is **deterministic** (no backtracking)
-* Logical variables are **bound at most once**
-* State evolves **monotonically** (no rollback)
-* Clause selection is based on **guards**
-* `fail` is restricted to guards; failures in the body are treated as errors
+Execution paths:
 
----
+```
+.mlp source
+   |
+   +-- Interpreter (mlpi.pl)
+   |
+   +-- Compiler (mlpc.pl)
+   |        ↓
+   |      Prolog (.pl)
+   |        ↓
+   |      Execution
+   |
+   +-- Optimizing Compiler (mlpc_opt.pl)
 
-## Usage
-
-```bash
-./mlpi.pl <SourceFile...> [-- <Args>]
+All generated programs run on the standard SWI-Prolog runtime.
 ```
 
-### Requirements
+--
 
-SWI-Prolog (`swipl`).
+## Features
 
-Example (Ubuntu/Debian):
+- Minimal syntax
+- Guarded clauses (GHC-inspired)
+- DCG support
+- `freeze`/2 support for delayed execution
+- Stream-style I/O
+- Pure Prolog backend
 
-```bash
-sudo apt update
-sudo apt install -y swi-prolog
-swipl --version
+MLP removes wait from traditional GHC-style languages to keep the runtime simple and compilation predictable.
+
+--
+
+## Example
+
+### Interpreter
+
+```
+$ ./mlpi.pl samples/primes.mlp builtin.mlp -- 100
+2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97
 ```
 
-I tested on "SWI-Prolog version 9.0.4 for x86_64-linux".
+---
 
-### Example
+### Compiler
 
-Generate prime numbers:
-
-```bash
-./mlpi.pl samples/primes.mlp builtin.mlp -- 1000
+```
+$ ./mlpc.pl samples/primes.mlp builtin.mlp > samples/primes.pl
+$ swipl samples/primes.pl -- 100
+2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97
 ```
 
-Generate N-Queen solutions:
+---
 
-```bash
-./mlpi.pl samples/queen.mlp builtin.mlp -- 10
+### Faster Compiler (Optimized)
+
+```
+$ ./mlpc_opt.pl samples/primes.mlp builtin.mlp > samples/primes.pl
+$ swipl samples/primes.pl -- 100
+2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97
 ```
 
-The program must define:
+The optimized compiler removes runtime checks where possible to improve performance.
 
-```prolog
-main(Args)
+### Sample Source
+
+`samples/hello.mlp`:
+
+```
+main([_|Args]) :-
+    prints(Stream, ['Hello,'| Args], []),
+    iostream(Stream).
+otherwise.
+main([Program|_]) :-
+    iostream([write('usage: '), write(Program), write(' messages...'), nl]).
+
+prints(Stream) --> [] | Stream = [nl].
+prints(Stream) -->
+    [Word], {Stream = [write(Word), write(' ')|Stream2]}, prints(Stream2) | true.
 ```
 
-which serves as the entry point.
+Run:
 
----
-
-## Syntax
-
-```prolog
-Head :- Guard | Body.
+```
+$ ./mlpi.pl samples/hello.mlp builtin.mlp -- world.
+Hello, world.
 ```
 
-* `Head` : predicate definition
-* `Guard`: condition for clause selection
-* `Body` : sequence of goals to execute
+## Language Notes
+### Guarded Clauses
 
----
+MLP supports guarded clauses inspired by GHC:
 
-## Execution Model
-
-When a predicate is called:
-
-1. Clauses with matching head are tried **top-to-bottom**
-2. The head is unified with the call
-3. The guard is evaluated
-
-   * If it succeeds, the clause is **committed**
-   * If it fails, the next clause is tried
-4. The body is executed
-5. If the body fails, an **exception is raised**
-
-If no clause matches, the call fails.
-
----
-
-## Guard Semantics (Important)
-
-Guards are executed as **normal predicate calls**.
-
-### Rules
-
-* Variable bindings in guards are **allowed**
-* Bindings are **not rolled back**, even if the guard fails
-* Guards may have **side effects on variable bindings**
-* No backtracking occurs
-
-### Example
-
-```prolog
-p(X) :- X = 1, q(X) | r(X).
-p(X) :- X = 2 | s(X).
+```
+Head :-
+    Guard
+    | Body.
 ```
 
-If `q(X)` fails, the binding `X = 1` remains in effect when evaluating the next clause.
+The otherwise. clauses are simply ignored.
 
----
+### DCG Support
 
-## Failure Semantics
+MLP supports DCG-style rules:
 
-* **Guard failure**
-
-  * Clause is rejected, next clause is tried
-* **Body failure**
-
-  * Raises an exception (`failed_to_execute/2`)
-
----
-
-## Built-in Predicates
-
-### Core
-
-```prolog
-true
-X = Y
-A is B
+```
+prints(Stream) -->
+    [Word],
+    {Stream = [write(Word)|Stream2]},
+    prints(Stream2)
+    | true.
 ```
 
-### Comparison
+--
 
-```prolog
-A =:= B
-A =\= B
-A < B
-A =< B
-A > B
-A >= B
-```
+### freeze Support
 
-### Type / Term
+MLP includes `freeze`/2 support for delayed execution.
 
-```prolog
-var(X)
-nonvar(X)
-integer(X)
-term_to_atom(T, A)
-```
+This allows suspension of goals until variables become instantiated.
 
-### Escape to Prolog
+--
 
-```prolog
-prolog(P)
-```
+## Philosophy
 
-Executes arbitrary Prolog code.
+MLP aims to be:
 
-**Warning**: ⚠️ `prolog/1` is unsafe and may violate monotonic semantics. ⚠️
+- Minimal
+- Predictable
+- Hackable
+- Easy to compile
+- Compatible with Prolog
 
----
+Rather than introducing complex runtime mechanisms, MLP keeps the execution model simple and relies on Prolog as the execution engine.
 
-## Program Structure
+--
 
-Source files are loaded as Prolog terms.
+## Why "Minimal Logic Programming"?
 
-* Facts:
+MLP focuses on:
 
-  ```prolog
-  p(a).
-  ```
+- A minimal core language
+- Minimal runtime mechanisms
+- Minimal surprises in compilation
 
-  are treated as:
+while still supporting practical features such as DCG and coroutining.
 
-  ```prolog
-  p(a) :- true.
-  ```
+--
 
-* Rules:
+## License
 
-  ```prolog
-  p(X) :- Guard | Body.
-  ```
-
----
-
-## Operator
-
-The guard separator `|`/2 is used as an infix operator:
-
----
-
-## Design Principles
-
-MLP is built on the following ideas:
-
-* **Monotonic state**: information is only added, never removed
-* **No rollback**: failure does not revert state
-* **Determinism**: execution path is predictable
-* **Explicit control**: guards control clause selection
-
----
-
-## Differences from Prolog
-
-| Feature          | Prolog            | MLP           |
-| ---------------- | ----------------- | ------------- |
-| Backtracking     | Yes               | No            |
-| Variable binding | Reversible        | Irreversible  |
-| Fail usage       | Control + logic   | Guard only    |
-| Execution        | Non-deterministic | Deterministic |
-
----
-
-## Limitations
-
-* No occurs check (cyclic terms may be created)
-* Clause order may affect results due to guard side effects
-* No suspension (unbound variables do not block execution)
-* No concurrency (yet)
-
----
-
-## Future Work
-
-* Suspension / dataflow execution
-* Parallel evaluation model
-* Improved error reporting and tracing
-* Optimized clause indexing
-* Garbage collection strategies
-
----
-
-## Summary
-
-MLP provides:
-
-> **Deterministic logic programming with monotonic state transitions**
-
-This interpreter serves as a simple and extensible foundation for exploring a new class of logic programming systems without backtracking.
+MIT License
