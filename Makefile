@@ -3,7 +3,7 @@ MLPC=./mlpc.pl
 MLPC_OPT=./mlpc_opt.pl
 
 
-test:: test_call test_freeze test_dcg_in test_dcg_out
+test:: check-tools test_call test_freeze test_dcg_in test_dcg_out
 
 hello:: hello_mlpi hello_mlpc hello_mlpc_opt
 collatz:: collatz_mlpi collatz_mlpc collatz_mlpc_opt
@@ -13,6 +13,16 @@ queen:: queen_mlpi queen_mlpc queen_mlpc_opt
 
 clean:
 	rm -f samples/*.pl
+
+check-tools::
+	@command -v swipl >/dev/null 2>&1 || { \
+		echo "error: swipl not found. Please install SWI-Prolog."; \
+		exit 127; \
+	}
+	@command -v $(CXX) >/dev/null 2>&1 || { \
+		echo "error: $(CXX) not found. Please install a C++ compiler."; \
+		exit 127; \
+	}
 
 test_call:: test_mlpi_call test_mlpc_call test_mlpc_opt_call
 test_freeze:: test_mlpi_freeze test_mlpc_freeze test_mlpc_opt_freeze
