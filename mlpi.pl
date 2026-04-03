@@ -6,7 +6,7 @@ main(Argv) :-
     ( parse_args(Argv, SourceFiles, Args)
     ; format(user_error, 'invalid arguments: ~w~n', [Argv]), fail), !,
     load_terms(SourceFiles, Terms-[]), !,
-    mghci(Terms, Args).
+    mlpi(Terms, Args).
 
 writeall([]).
 writeall([T|Ts]) :- writeln(T), writeall(Ts).
@@ -18,7 +18,7 @@ parse_args([Argv0 | Argv], SourceFiles, [Argv0 | Args]) :-
 opt_parse_dcg([], []) --> [].
 opt_parse_dcg([], _) -->
     ['-h'], !,
-    { format(user_error, 'usage: mghci <SourceFile..> [-- <Args>]', []), halt }.
+    { format(user_error, 'usage: mlpi <SourceFile..> [-- <Args>]', []), halt }.
 opt_parse_dcg(SourceFiles, Args) -->
     ['-d'], !,
     { abolish(dwriteln, 1), assert(dwriteln(X) :- writeln(X)) },
@@ -117,41 +117,41 @@ extend_list([V|Values], List-List2) :-
 % ----------------------------------------------------------------------
 % Interpreter
 % ----------------------------------------------------------------------
-mghci(Terms, Args) :-
-    setup_mghci_clauses(Terms),
-    mghci_call(main(Args), main(Args)).
+mlpi(Terms, Args) :-
+    setup_mlpi_clauses(Terms),
+    mlpi_call(main(Args), main(Args)).
 
-setup_mghci_clauses([]).
-setup_mghci_clauses([Term|Terms]) :-
-    ( Term = (Head :- Body) -> assertz(mghci_clauses(Head, Body))
-    ; assertz(mghci_clauses(Term, true)) ),
-    setup_mghci_clauses(Terms).
+setup_mlpi_clauses([]).
+setup_mlpi_clauses([Term|Terms]) :-
+    ( Term = (Head :- Body) -> assertz(mlpi_clauses(Head, Body))
+    ; assertz(mlpi_clauses(Term, true)) ),
+    setup_mlpi_clauses(Terms).
 
-mghci_call(Head, (P, Q)) :-
-    mghci_call(Head, P),
-    mghci_call(Head, Q).
+mlpi_call(Head, (P, Q)) :-
+    mlpi_call(Head, P),
+    mlpi_call(Head, Q).
 % built-in predicates
-mghci_call(_, true).
-mghci_call(Head, var(A)) :- !, call_(Head, var(A)).
-mghci_call(Head, nonvar(A)) :- !, call_(Head, nonvar(A)).
-mghci_call(Head, integer(I)) :- !, call_(Head, integer(I)).
-mghci_call(Head, A is B) :- !, call_(Head, A is B).
-mghci_call(Head, A = B) :- !, call_(Head, A = B).
-mghci_call(Head, A =\= B) :- !, call_(Head, A =\= B).
-mghci_call(Head, A =:= B) :- !, call_(Head, A =:= B).
-mghci_call(Head, A < B) :- !, call_(Head, A < B).
-mghci_call(Head, A > B) :- !, call_(Head, A > B).
-mghci_call(Head, A =< B) :- !, call_(Head, A =< B).
-mghci_call(Head, A >= B) :- !, call_(Head, A >= B).
-mghci_call(Head, prolog(P)) :- call_(Head, P).
-mghci_call(Head, call(P)) :- call_(Head, mghci_call(call(P), P)).
-mghci_call(Head, freeze(X, P)) :-
-    call_(Head, freeze(X, mghci_call(freeze(X, P), P))).
-mghci_call(_, Goal) :-
+mlpi_call(_, true).
+mlpi_call(Head, var(A)) :- !, call_(Head, var(A)).
+mlpi_call(Head, nonvar(A)) :- !, call_(Head, nonvar(A)).
+mlpi_call(Head, integer(I)) :- !, call_(Head, integer(I)).
+mlpi_call(Head, A is B) :- !, call_(Head, A is B).
+mlpi_call(Head, A = B) :- !, call_(Head, A = B).
+mlpi_call(Head, A =\= B) :- !, call_(Head, A =\= B).
+mlpi_call(Head, A =:= B) :- !, call_(Head, A =:= B).
+mlpi_call(Head, A < B) :- !, call_(Head, A < B).
+mlpi_call(Head, A > B) :- !, call_(Head, A > B).
+mlpi_call(Head, A =< B) :- !, call_(Head, A =< B).
+mlpi_call(Head, A >= B) :- !, call_(Head, A >= B).
+mlpi_call(Head, prolog(P)) :- call_(Head, P).
+mlpi_call(Head, call(P)) :- call_(Head, mlpi_call(call(P), P)).
+mlpi_call(Head, freeze(X, P)) :-
+    call_(Head, freeze(X, mlpi_call(freeze(X, P), P))).
+mlpi_call(_, Goal) :-
     functor(Goal, F, N), functor(Copy, F, N),
-    mghci_clauses(Copy, GuardBody),
+    mlpi_clauses(Copy, GuardBody),
     ( GuardBody = (Guard | Body)
-    -> Goal = Copy, mghci_call(Goal, Guard), trust(Goal, Body)
+    -> Goal = Copy, mlpi_call(Goal, Guard), trust(Goal, Body)
     ; Goal = Copy, trust(Goal, GuardBody) ).
 call_(Head, Goal) :-
     ( call(Goal) -> dwriteln(success(Head, Goal))
@@ -159,6 +159,6 @@ call_(Head, Goal) :-
 trust(Head, (P, Q)) :- trust(Head, P), trust(Head, Q).
 trust(_, true).
 trust(Head, P) :-
-    ( mghci_call(Head, P) -> true
+    ( mlpi_call(Head, P) -> true
     ; throw(error(failed_to_execute(Head, P),
                   context(Head, P))) ).

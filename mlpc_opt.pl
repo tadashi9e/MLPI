@@ -30,7 +30,7 @@ parse_args(Argv, SourceFiles, Options-Options2) :-
 opt_parse_dcg([], Options-Options) --> [].
 opt_parse_dcg([], Options-Options) -->
     ['-h'], !,
-    { format(user_error, 'usage: mghcc <SourceFile..>', []), halt }.
+    { format(user_error, 'usage: mlpc_opt <SourceFile..>', []), halt }.
 opt_parse_dcg(SourceFiles, [debug|Options]-Options2) -->
     ['-d'], !,
     opt_parse_dcg(SourceFiles, Options-Options2).

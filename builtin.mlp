@@ -1,4 +1,15 @@
 % -*- mode: prolog; coding:utf-8 -*-
+A := B :- prolog(A is B).
+A =.. B :- prolog(A =.. B) | true.
+term_to_atom(T, A) :- prolog(term_to_atom(T, A)) | true.
+atom_number(A, N) :- prolog(atom_number(A, N)) | true.
+phrase(P, A, B) :-
+    P =.. [F|Args],
+    append(Args, [A, B], Args2),
+    P2 =.. [F|Args2],
+    call(P2).
+append(A, B, C) :- prolog(append(A, B, C)) | true.
+
 iostream([]).
 iostream([C|Cs]) :- iostream(C, Cs).
 iostream(write(P), Cmds) :- prolog(write(P)), iostream(Cmds).
@@ -10,7 +21,3 @@ iostream(Op, Cmds) :-
     prolog(format(user_error, 'error: unknown iostream operation: ~w~n',
                   [Op])),
     iostream(Cmds).
-
-A := B :- prolog(A is B).
-term_to_atom(T, A) :- prolog(term_to_atom(T, A)) | true.
-atom_number(A, N) :- prolog(atom_number(A, N)) | true.

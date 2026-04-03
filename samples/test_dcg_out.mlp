@@ -1,5 +1,8 @@
 % -*- mode: prolog; coding:utf-8 -*-
 main([_]) :-
-    test([a, b, c, d], X, []), iostream([writeln(X)]).
-test([]) --> true | [].
-test([X|Y]) --> true | [X], test(Y).
+    phrase(test(d(c(b(a)))), X, []),
+    iostream([writeln(X)]).
+test(a) --> true | [a].
+test(b(X)) --> true | [b], test(X).
+test(c(X)) --> true | [c], test(X).
+test(d(X)) --> true | [d], test(X).

@@ -1,6 +1,6 @@
 % -*- mode: prolog; coding:utf-8 -*-
 main([_|Args]) :-
-    prints(Stream, ['Hello,'| Args], []),
+    phrase(prints(Stream), ['Hello,'| Args], []),
     iostream(Stream).
 otherwise.
 main([Program|_]) :-

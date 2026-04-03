@@ -23,7 +23,7 @@ collatz_for_each_args([A | As]) -->
     printstream(Ns),
     collatz_for_each_args(As).
 main([_ | Args]) :-
-    collatz_for_each_args(Args, Stream, []),
+    phrase(collatz_for_each_args(Args), Stream, []),
     iostream(Stream).
 otherwise.
 main([Prog|_]) :-
