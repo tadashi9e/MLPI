@@ -1,0 +1,156 @@
+% -*- mode: prolog; coding:utf-8 -*-
+% ----------------------------------------------------------------------
+% preprocessing for DCG
+% ----------------------------------------------------------------------
+preprocess([], []).
+preprocess([term_data(Term, NameVars)|Terms],
+           [term_data(PreProcessedTerm, NameVars)|Terms2]) :-
+    preprocess_term(Term, PreProcessedTerm),
+    preprocess(Terms, Terms2).
+preprocess_term((Head --> Guard | Body), _) :-
+    Pred = (Head --> Guard | Body),
+    may_be_stream(Guard), may_be_stream(Body) |
+    throw(error(invalid_predicate(Pred))).
+preprocess_term((Head --> Guard | Body), (Head2 :- Guard2 | Body2)) :-
+    Pred = (Head --> Guard | Body),
+    may_be_stream(Guard) |
+    preprocess_stream(Pred, Guard, In1-In2, Guard2),
+    Head =.. [F|Args], append(Args, [In1,In2], Args2),
+    Head2 =.. [F|Args2],
+    Body2 = Body.
+preprocess_term((Head --> Guard | Body), (Head2 :- Guard2 | Body2)) :-
+    Pred = (Head --> Guard | Body),
+    may_be_stream(Body) |
+    preprocess_stream(Pred, Body, Out1-Out2, Body2),
+    Head =.. [F|Args], append(Args, [Out1,Out2], Args2),
+    Head2 =.. [F|Args2],
+    Guard2 = Guard.
+preprocess_term((Head --> Body), (Head2 :- Body2)) :-
+    Pred = (Head --> Body),
+    may_be_stream(Body) |
+    preprocess_stream(Pred, Body, Out1-Out2, Body2),
+    Head =.. [F|Args], append(Args, [Out1,Out2], Args2),
+    Head2 =.. [F|Args2].
+otherwise.
+preprocess_term(Term, Term).
+
+may_be_stream(Gs) :- may_be_stream(Gs, false, Result), Result = true | true.
+may_be_stream(({_},   _), _, Flag2) :- Flag2 = true.
+may_be_stream(([],    _), _, Flag2) :- Flag2 = true.
+may_be_stream(([_|_], _), _, Flag2) :- Flag2 = true.
+may_be_stream((_, Gs), Flag, Flag2) :- may_be_stream(Gs, Flag, Flag2).
+may_be_stream({_},   _, Flag2) :- Flag2 = true.
+may_be_stream([],    _, Flag2) :- Flag2 = true.
+may_be_stream([_|_], _, Flag2) :- Flag2 = true.
+otherwise.
+may_be_stream(_, Flag, Flag2) :- Flag2 = Flag.
+
+preprocess_stream(Pred, (G,Gs), IO-IO2, Gs2) :-
+    G = [] |
+    preprocess_stream(Pred, Gs, IO-IO2, Gs2).
+preprocess_stream(Pred, (G,Gs), IO-IO3, (G2,Gs2)) :-
+    G = [_|_] |
+    extend_list(G, IO1-IO2), G2 = (IO = IO1),
+    preprocess_stream(Pred, Gs, IO2-IO3, Gs2).
+preprocess_stream(Pred, (G,Gs), IO-IO2, (G2,Gs2)) :-
+    G = {G0} |
+    G2 = G0, preprocess_stream(Pred, Gs, IO-IO2, Gs2).
+preprocess_stream(Pred, (G,Gs), IO-IO2, (G2,Gs2)) :-
+    G =.. [F|Args] |
+    append(Args, [IO,IO1], Args2),
+    G2 =.. [F|Args2], preprocess_stream(Pred, Gs, IO1-IO2, Gs2).
+preprocess_stream(_, G, IO-IO2, G2) :-
+    G = [] | G2 = (IO = IO2).
+preprocess_stream(_, G, IO-IO2, G2) :-
+    G = [_|_] |
+    extend_list(G, IO1-IO2), G2 = (IO = IO1).
+preprocess_stream(_, G, IO-IO2, G2) :-
+    G = {G0} | G2 = G0, IO = IO2.
+preprocess_stream(_, G, IO-IO2, G2) :-
+    G =.. [F|Args] |
+    append(Args, [IO,IO2], Args2),
+    G2 =.. [F|Args2].
+preprocess_stream(Pred, (G,_), _, _) :-
+    throw(error(invalid_predicate(Pred, G))).
+preprocess_stream(Pred, G, _, _) :-
+    throw(error(invalid_predicate(Pred, G))).
+
+extend_list([], List-List).
+extend_list([V|Values], List-List2) :-
+    List = [V|List1], extend_list(Values, List1-List2).
+% ----------------------------------------------------------------------
+% MLP -> Prolog Translator
+% ----------------------------------------------------------------------
+translate([], []).
+translate(
+    [term_data((Head :- Guard | Body), NameVars)|Terms],
+    [term_data((Head2 :- CompiledGuard, !, TrustedBody), NameVars)|Terms2]) :-
+    debug(translate, ':~p ~p', [translate1, call_guards(Head, Guard, CompiledGuard)]),
+    call_guards(Head, Guard, CompiledGuard),
+    debug(translate, ':~p ~p', [translate1, call_goals(Head, Body, TrustedBody)]),
+    call_goals(Head, Body, TrustedBody),
+    rename_term(Head, Head2),
+    translate(Terms, Terms2).
+translate(
+    [term_data((Head :- Body), NameVars)|Terms],
+    [term_data((Head2 :- TrustedBody), NameVars)|Terms2]) :-
+    rename_term(Head, Head2),
+    debug(translate, ':~p ~p', [translate2, call_goals(Head, Body, TrustedBody)]),
+    call_goals(Head, Body, TrustedBody),
+    translate(Terms, Terms2).
+translate(
+    [term_data(Head, NameVars)|Terms],
+    [term_data(Head2, NameVars)|Terms2]) :-
+    debug(translate, ':~p ~p', [translate3, Head]),
+    rename_term(Head, Head2),
+    translate(Terms, Terms2).
+
+call_guards(Head, (G1, G2), (P1, P2)) :-
+    call_guards(Head, G1, P1),
+    call_guards(Head, G2, P2).
+call_guards(_, true, P) :- P = true.
+call_guards(Head, var(X), P) :- P = m__guard__(Head, var(X)).
+call_guards(Head, nonvar(X), P) :- P = m__guard__(Head, nonvar(X)).
+call_guards(Head, integer(X), P) :- P = m__guard__(Head, integer(X)).
+call_guards(Head, A = B, P) :- P = m__guard__(Head, (A = B)).
+call_guards(Head, F =.. L, P) :- P = m__guard__(Head, (F =.. L)).
+call_guards(Head, A is B, P) :- P = m__guard__(Head, (A is B)).
+call_guards(Head, A := B, P) :- P = m__guard__(Head, (A is B)).
+call_guards(Head, A =\= B, P) :- P = m__guard__(Head, (A =\= B)).
+call_guards(Head, A =:= B, P) :- P = m__guard__(Head, (A =:= B)).
+call_guards(Head, A < B, P) :- P = m__guard__(Head, (A < B)).
+call_guards(Head, A > B, P) :- P = m__guard__(Head, (A > B)).
+call_guards(Head, A =< B, P) :- P = m__guard__(Head, (A =< B)).
+call_guards(Head, A >= B, P) :- P = m__guard__(Head, (A >= B)).
+call_guards(Head, prolog(G), P) :- P = m__guard__(Head, G).
+call_guards(Head, call(G), P) :- P = m__guard__(Head, m__call__(G)).
+call_guards(Head, freeze(X, G), P) :- P = m__guard__(Head, m__freeze__(X, G)).
+call_guards(Head, catch(G, Error, Recover), P) :- P = m__guard__(Head, m__catch__(G, Error, Recover)).
+call_guards(Head, abolish(Func, Arity), P) :- P = m__guard__(Head, m__abolish__(Func, Arity)).
+call_guards(Head, asserta(Term), P) :- P = m__guard__(Head, m__asserta__(Term)).
+call_guards(Head, assertz(Term), P) :- P = m__guard__(Head, m__assertz__(Term)).
+call_guards(Head, G, P) :-
+    rename_term(G, G2), P = m__guard__(Head, G2).
+
+call_goals(Head, (P, Q), (P2, !, Q2)) :-
+    debug(translate, ':~p ~p', [call_goals1, call_goals(Head, P, P2)]),
+    call_goals(Head, P, P2),
+    debug(translate, ':~p ~p', [call_goals2, call_goals(Head, Q, Q2)]),
+    call_goals(Head, Q, Q2).
+call_goals(_, true, true).
+call_goals(Head, A = B, P) :- P = m__body__(Head, (A = B)).
+call_goals(Head, A := B, P) :- P = m__body__(Head, (A is B)).
+call_goals(Head, A is B, P) :- P = m__body__(Head, (A is B)).
+call_goals(Head, F =.. L, P) :- P = m__body__(Head, (F =.. L)).
+call_goals(Head, prolog(Q), P) :- P = m__body__(Head, Q).
+call_goals(Head, call(G), P) :- P = m__body__(Head, m__call__(G)).
+call_goals(Head, freeze(X, G), P) :- P = m__body__(Head, m__freeze__(Head, X, G)).
+call_goals(Head, catch(G, Error, Recover), P) :- P = m__body__(Head, m__catch__(G, Error, Recover)).
+call_goals(Head, abolish(Func, Arity), P) :- P = m__body__(Head, m__abolish__(Func, Arity)).
+call_goals(Head, asserta(Term), P) :- P = m__body__(Head, m__asserta__(Term)).
+call_goals(Head, assertz(Term), P) :- P = m__body__(Head, m__assertz__(Term)).
+call_goals(Head, Q, P) :-
+    rename_term(Q, Q2), P = m__body__(Head, Q2).
+
+rename_term(Term, RenamedTerm) :-
+    Term =.. [F|Args], atom_concat('g__', F, F2), RenamedTerm =.. [F2|Args].

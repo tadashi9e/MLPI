@@ -1,8 +1,11 @@
 % -*- mode: prolog; coding:utf-8 -*-
 A := B :- prolog(A is B).
-A =.. B :- prolog(A =.. B) | true.
 term_to_atom(T, A) :- prolog(term_to_atom(T, A)) | true.
+atom_chars(A, Cs) :- prolog(atom_chars(A, Cs)) | true.
+atom_concat(A, B, C) :- prolog(atom_concat(A, B, C)) | true.
 atom_number(A, N) :- prolog(atom_number(A, N)) | true.
+term_string(T,S,Opts) :- prolog(term_string(T, S, Opts)) | true.
+functor(Func, Name, Arity) :- prolog(functor(Func, Name, Arity)) | true.
 phrase(P, A, B) :-
     P =.. [F|Args],
     append(Args, [A, B], Args2),
@@ -10,14 +13,50 @@ phrase(P, A, B) :-
     call(P2).
 append(A, B, C) :- prolog(append(A, B, C)) | true.
 
-iostream([]).
-iostream([C|Cs]) :- iostream(C, Cs).
-iostream(write(P), Cmds) :- prolog(write(P)), iostream(Cmds).
-iostream(writeln(P), Cmds) :- prolog(writeln(P)), iostream(Cmds).
-iostream(nl, Cmds) :- prolog(nl), iostream(Cmds).
-iostream(ttyflush, Cmds) :- prolog(ttyflush), iostream(Cmds).
-iostream(told, _).
-iostream(Op, Cmds) :-
+debug(Topic) :- prolog(debug(Topic)) | true.
+debug(Topic, Format, Args) :- prolog(debug(Topic, Format, Args)) | true.
+write(X) :- prolog(write(X)) | true.
+writeln(X) :- prolog(writeln(X)) | true.
+nl :- prolog(nl) | true.
+% EX: write(user_error, message)
+write(Stream, X) :- prolog(write(Stream, X)) | true.
+writeln(Stream, X) :- prolog(writeln(Stream, X)) | true.
+nl(Stream) :- prolog(nl(Stream)) | true.
+
+iostream(IO) :-
+    IO = [_|_],
+    iostream_loop(IO).
+iostream_loop(Cmds) :-
+    var(Cmds) | freeze(Cmds, iostream_loop(Cmds)).
+iostream_loop([Cmd|Cmds]) :-
+    var(Cmd) | freeze(Cmd, iostream_loop([Cmd|Cmds])).
+iostream_loop([]).
+iostream_loop([told]).
+iostream_loop([write(P)|Cmds]) :- prolog(write(P)), iostream_loop(Cmds).
+iostream_loop([writeln(P)|Cmds]) :- prolog(writeln(P)), iostream_loop(Cmds).
+iostream_loop([write_term(T, Opts)|Cmds]) :-
+    prolog(write_term(T, Opts)), iostream_loop(Cmds).
+iostream_loop([print_term(T, Opts)|Cmds]) :-
+    prolog(print_term(T, Opts)), iostream_loop(Cmds).
+iostream_loop([format(Stream, Message, Args)|Cmds]) :-
+    prolog(format(Stream, Message, Args)), iostream_loop(Cmds).
+iostream_loop([format(Message, Args)|Cmds]) :-
+    prolog(format(Message, Args)), iostream_loop(Cmds).
+iostream_loop([nl|Cmds]) :- prolog(nl), iostream_loop(Cmds).
+iostream_loop([ttyflush|Cmds]) :- prolog(ttyflush), iostream_loop(Cmds).
+iostream_loop([flush(X)|Cmds]) :-
+    prolog(ttyflush), X = flushed, iostream_loop(Cmds).
+iostream_loop([read(P)|Cmds]) :- prolog(read(P)), iostream_loop(Cmds).
+iostream_loop([open(File, Mode, Stream, Opts)|Cmds]) :-
+    prolog(open(File, Mode, Stream, Opts)), iostream_loop(Cmds).
+iostream_loop([close(Stream)|Cmds]) :-
+    prolog(close(Stream)), iostream_loop(Cmds).
+iostream_loop([prompt1(Prompt)|Cmds]) :-
+    prolog(prompt1(Prompt)), iostream_loop(Cmds).
+iostream_loop([read_term(From, Term, Opts) | Cmds]) :-
+    prolog(read_term(From, Term, Opts)), iostream_loop(Cmds).
+otherwise.
+iostream_loop([Op|Cmds]) :-
     prolog(format(user_error, 'error: unknown iostream operation: ~w~n',
                   [Op])),
-    iostream(Cmds).
+    iostream_loop(Cmds).

@@ -1,5 +1,5 @@
 % -*- mode: prolog; coding:utf-8 -*-
-main([_]) :-
+main(_) :-
     call(d(c(b(a)))).
 a :- iostream([writeln(a)]).
 b(X) :- iostream([writeln(b(X))]), call(X).

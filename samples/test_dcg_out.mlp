@@ -1,5 +1,5 @@
 % -*- mode: prolog; coding:utf-8 -*-
-main([_]) :-
+main(_) :-
     phrase(test(d(c(b(a)))), X, []),
     iostream([writeln(X)]).
 test(a) --> true | [a].

@@ -1,5 +1,5 @@
 % -*- mode: prolog; coding:utf-8 -*-
-main([_]) :-
+main(_) :-
     freeze(Trigger, d(c(b(a)))), Trigger = fire.
 a :- iostream([writeln(a)]).
 b(X) :- freeze(Trigger, X), iostream([writeln(b(X))]), Trigger = fire.

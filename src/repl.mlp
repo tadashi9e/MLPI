@@ -1,0 +1,87 @@
+% -*- mode: prolog; coding:utf-8 -*-
+main([_]) :-
+    iostream(IO),
+    repl(IO).
+% ----------------------------------------------------------------------
+% read-eval-print loop
+% ----------------------------------------------------------------------
+repl(IO) :-
+    repl_read('mlp> ', Term, Vars, IO-IO1),
+    repl_eval_print_loop(Term, Vars, IO1).
+repl_eval_print_loop(end_of_file, _, IO) :-
+    IO = [nl, told].
+repl_eval_print_loop(Term, Vars, IO) :-
+    catch(repl_eval_print(Term, Vars, IO-IO1),
+          Error, IO = [writeln(Error) | IO1]),
+    repl(IO1).
+
+repl_read(Prompt, Term, Vars, IO-IO2) :-
+    IO = [
+        prompt1(Prompt),
+        read_term(user_input, Term,
+                  [variable_names(Vars),
+                   syntax_errors(dec10)]) | IO2 ].
+repl_eval_print(Term, Vars, IO-IO2) :-
+    call(Term) | repl_print(Vars, IO-IO2).
+otherwise.
+repl_eval_print(_, _, IO-IO2) :- IO = [writeln(fail) | IO2].
+
+repl_print([], IO-IO2) :- IO2 = IO.
+repl_print([NV|Vars], IO-IO2) :-
+    NV = (Name=Var) |
+    IO = [write(Name), write(' = '), writeln(Var) | IO1],
+    repl_print(Vars, IO1-IO2).
+% ----------------------------------------------------------------------
+% consult/1
+% ----------------------------------------------------------------------
+consult(File) :-
+    iostream(FileIO),
+    FileIO = [open(File, read, Stream, [encoding(utf8)]) | FileIO2],
+    read_all_terms(Stream, Terms-[], FileIO2-FileIO3),
+    abolish_all_terms(Terms) |
+    assert_all_terms(Terms),
+    FileIO3 = [close(Stream), told].
+
+read_all_terms(Stream, Terms-Terms2, FileIO-FileIO2) :-
+    FileIO = [read_term(Stream, Term,
+                        [variable_names(NameVars),
+                         singletons(Singletons)]) | FileIO1],
+    report_singletons(Term, NameVars, Singletons),
+    read_all_terms_aux(Term, Stream, Terms-Terms2, FileIO1-FileIO2).
+read_all_terms_aux(end_of_file, _, Terms-Terms2, FileIO-FileIO2) :-
+    Terms = Terms2, FileIO = FileIO2.
+read_all_terms_aux(otherwise, Stream, Terms-Terms2, FileIO-FileIO2) :-
+    read_all_terms(Stream, Terms-Terms2, FileIO-FileIO2).
+read_all_terms_aux(Term, Stream, Terms-Terms2, FileIO-FileIO2) :-
+    preprocess_term(Term, PreprocessedTerm),
+    Terms = [PreprocessedTerm|Terms1],
+    read_all_terms(Stream, Terms1-Terms2, FileIO-FileIO2).
+% ----------------------------------------------------------------------
+report_singletons(_, _, []).
+report_singletons(Term, Vars, Singletons) :-
+    Singletons = [Name=_ | RestSingletons],
+    atom_chars(Name, SCs),
+    report_singletons_aux(SCs, Name, Term, Vars, RestSingletons).
+report_singletons_aux(['_'|_], _, Term, Vars, RestSingletons) :-
+    report_singletons(Term, Vars, RestSingletons).
+report_singletons_aux(_, Name, Term, Vars, RestSingletons) :-
+    term_string(Term, Str, [variable_names(Vars)]),
+    format(user_error, 'warning: Singleton ~w in ~s.~n',
+           [Name, Str]),
+    report_singletons(Term, Vars, RestSingletons).
+% ----------------------------------------------------------------------
+abolish_all_terms([]).
+abolish_all_terms([Term|Terms]) :-
+    Term = (Head :- _),
+    functor(Head, Func, Arity),
+    abolish(Func, Arity) |
+    abolish_all_terms(Terms).
+abolish_all_terms([Term|Terms]) :-
+    Term = Head, functor(Head, Func, Arity),
+    abolish(Func, Arity) |
+    abolish_all_terms(Terms).
+otherwise.  % ignore error
+abolish_all_terms([_|Terms]) :- abolish_all_terms(Terms).
+
+assert_all_terms([]).
+assert_all_terms([Term|Terms]) :- assertz(Term), assert_all_terms(Terms).

@@ -1,5 +1,5 @@
 % -*- mode: prolog; coding:utf-8 -*-
-main([_]) :-
+main(_) :-
     phrase(test(X, []), [a, b, c, d], _),
     iostream([writeln(X)]).
 test(X, Y) --> [a], test(X, Y2) | Y2 = [a|Y].

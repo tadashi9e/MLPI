@@ -12,15 +12,11 @@ primes2:: primes2_mlpi primes2_mlpc primes2_mlpc_opt
 queen:: queen_mlpi queen_mlpc queen_mlpc_opt
 
 clean:
-	rm -f samples/*.pl
+	rm -f samples/*.pl bootstrap/*.pl
 
 check-tools::
 	@command -v swipl >/dev/null 2>&1 || { \
 		echo "error: swipl not found. Please install SWI-Prolog."; \
-		exit 127; \
-	}
-	@command -v $(CXX) >/dev/null 2>&1 || { \
-		echo "error: $(CXX) not found. Please install a C++ compiler."; \
 		exit 127; \
 	}
 
@@ -133,3 +129,38 @@ queen_mlpc_opt::
 	chmod +x samples/queen.pl; \
 	ls -l samples/queen.pl; \
 	time samples/queen.pl 10 |tail
+
+# ----------------------------------------------------------------------
+# generate mlpc.pl
+# ----------------------------------------------------------------------
+bootstrap/mlpc.stg3.pl: src/mlpc.mlp src/mlpc_runtime.mlp builtin.mlp
+	mkdir -p bootstrap && \
+	swipl mlpi.pl -- src/mlpc.mlp src/mlpc_runtime.mlp builtin.mlp > bootstrap/mlpc.stg1.pl && \
+	swipl bootstrap/mlpc.stg1.pl -- src/mlpc.mlp src/mlpc_runtime.mlp builtin.mlp > bootstrap/mlpc.stg2.pl && \
+	swipl bootstrap/mlpc.stg2.pl -- src/mlpc.mlp src/mlpc_runtime.mlp builtin.mlp > bootstrap/mlpc.stg3.pl && \
+	diff bootstrap/mlpc.stg2.pl bootstrap/mlpc.stg3.pl
+mlpc.pl: bootstrap/mlpc.stg3.pl
+	if [ -s bootstrap/mlpc.stg3.pl ]; then \
+	  install bootstrap/mlpc.stg3.pl -m 755 mlpc.pl; \
+	fi
+
+# ----------------------------------------------------------------------
+# generate mlpc_opt.pl
+# ----------------------------------------------------------------------
+bootstrap/mlpc_opt.stg3.pl:: src/mlpc_opt.mlp src/mlpc_opt_runtime.mlp builtin.mlp
+	mkdir -p bootstrap && \
+	swipl ./mlpi.pl -- src/mlpc_opt.mlp src/mlpc_opt_runtime.mlp builtin.mlp > bootstrap/mlpc_opt.stg1.pl && \
+	swipl bootstrap/mlpc_opt.stg1.pl -- src/mlpc_opt.mlp src/mlpc_opt_runtime.mlp builtin.mlp > bootstrap/mlpc_opt.stg2.pl && \
+	swipl bootstrap/mlpc_opt.stg2.pl -- src/mlpc_opt.mlp src/mlpc_opt_runtime.mlp builtin.mlp > bootstrap/mlpc_opt.stg3.pl && \
+	diff bootstrap/mlpc_opt.stg2.pl bootstrap/mlpc_opt.stg3.pl
+mlpc_opt.pl: bootstrap/mlpc_opt.stg3.pl
+	if [ -s bootstrap/mlpc_opt.stg3.pl ]; then \
+	  install bootstrap/mlpc_opt.stg3.pl -m 755 mlpc_opt.pl; \
+	fi
+
+# ----------------------------------------------------------------------
+# generate repl.pl
+# ----------------------------------------------------------------------
+repl.pl: src/repl.mlp mlpc.pl
+	swipl mlpc.pl -- src/repl.mlp builtin.mlp > repl.pl; \
+	chmod +x repl.pl

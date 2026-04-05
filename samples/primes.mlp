@@ -1,7 +1,7 @@
 % -*- mode: prolog; coding:utf-8 -*-
 main([_, Arg]) :-
     term_to_atom(N, Arg), integer(N)
-    | primes(N, Ps), printstream(Ps,St), iostream(St).
+    | iostream(IO), print_service(Ps, IO), primes(N, Ps).
 main([Program|_]) :-
     iostream([write('usage: '), write(Program), write(' <N>'), nl]).
 
@@ -23,15 +23,19 @@ filter(P, [X|Xs1], Ys0) :-
     | filter(P, Xs1, Ys0).
 filter(_, [],      Ys0) :-
     Ys0 = [].
-printstream(Ps) :-
-    iostream(Stream), printstream(Ps, Stream).
-printstream([], Stream) :-
-    Stream = [nl, told].
-printstream([P|Ps], Stream) :-
-    Stream = [write(P), ttyflush | Stream2],
-    printstream2(Ps, Stream2).
-printstream2([], Stream) :-
-    Stream = [nl, told].
-printstream2([P|Ps], Stream) :-
-    Stream = [write(','), write(P), ttyflush | Stream2],
-    printstream2(Ps, Stream2).
+
+print_service(Ps, IO) :-
+    var(Ps) | freeze(Ps, print_service(Ps, IO)).
+print_service([P|Ps], IO) :-
+    var(P) | freeze(P, print_service([P|Ps], IO)).
+print_service([], IO) :- IO = [nl, told].
+print_service([P|Ps], IO) :-
+    IO = [write(P), ttyflush|IO2], print_service2(Ps, IO2).
+print_service2(Ps, IO) :-
+    var(Ps) | freeze(Ps, print_service2(Ps, IO)).
+print_service2([P|Ps], IO) :-
+    var(P) | freeze(P, print_service2([P|Ps], IO)).
+print_service2([], IO) :- IO = [nl, told].
+print_service2([P|Ps], IO) :-
+    IO = [write(','), write(P), ttyflush | IO2],
+    print_service2(Ps, IO2).
