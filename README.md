@@ -37,6 +37,32 @@ Execution paths:
 All generated programs run on the standard SWI-Prolog runtime.
 ```
 
+---
+
+## REPL
+
+MLP comes with an interactive REPL (Read-Eval-Print Loop) for experimenting with MLP code.
+
+To start the REPL:
+
+```bash
+$ rlwrap ./repl.pl
+```
+
+Example session:
+
+```
+mlp> consult('samples/primes.mlp').
+mlp> primes(100, Ps).
+Ps = [2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97]
+mlp> abolish(primes, 2).
+mlp> primes(100, Ps).
+error(existence_error(procedure,g__primes/2),context(m__body__/2,_886))
+mlp> 
+```
+
+In the REPL, you can load MLP files, execute predicates, and manipulate the knowledge base.
+
 --
 
 ## Features
