@@ -5,9 +5,11 @@
 main(Argv) :-
     % debug(main),
     % debug(mlpi),
+    debug(main, ':Argv = ~p', [Argv]),
     debug(main, ':~p', [parse_args(Argv)]),
     ( parse_args(Argv, SourceFiles, Args)
     ; format(user_error, 'invalid arguments: ~w~n', [Argv]), fail), !,
+    debug(main, ':Args = ~p', [Args]),
     debug(main, ':~p', [load_terms(SourceFiles)]),
     load_terms(SourceFiles, Terms-[]), !,
     debug(main, ':~p', [mlpi]),
@@ -16,16 +18,14 @@ main(Argv) :-
 writeall([]).
 writeall([T|Ts]) :- writeln(T), writeall(Ts).
 
-dwriteln(_).
-
 parse_args(['-h' | _], _, _) :-
     !, format(user_error, 'usage: mlpi <SourceFile..> [-- <Args>]', []), halt.
 parse_args(['-d' | Argv], SourceFiles, Args) :-
-    !, abolish(dwriteln, 1), assert(dwriteln(X) :- writeln(X)),
+    !, debug(mlpi),
     parse_args(Argv, SourceFiles, Args).
 parse_args(['--' | Argv], [], Args) :-
-    !, Argv = Args.
-parse_args([SourceFile | Argv], [SourceFile|SourceFiles], [SourceFile | Args]) :-
+    !, debug(main, 'parse_args(Args=~w)~n', [Argv]), Args = Argv.
+parse_args([SourceFile | Argv], [SourceFile|SourceFiles], Args) :-
     !, parse_args(Argv, SourceFiles, Args).
 parse_args([], [], []) :- !.
 
@@ -134,9 +134,7 @@ extend_list([V|Values], List-List2) :-
 % Interpreter
 % ----------------------------------------------------------------------
 mlpi(Terms, Args) :-
-    debug(mlpi, ':~p', [setup_mlpi_clauses]),
     setup_mlpi_clauses(Terms),
-    debug(mlpi, ':~p', [mlpi(call(main(Args)))]),
     mlpi_call(main(Args), main(Args)).
 
 setup_mlpi_clauses([]).
@@ -166,8 +164,7 @@ remove_clause([Clause|Clauses], Func, Arity, Clauses2) :-
     ; Clauses2 = [Clause|Clauses3], remove_clause(Clauses, Func, Arity, Clauses3) ).
 
 mlpi_call(Head, (P, Q)) :-
-    mlpi_call(Head, P), debug(mlpi, ':~p', [mlpi_call(P)]),
-    mlpi_call(Head, Q).
+    mlpi_call(Head, P), mlpi_call(Head, Q).
 % built-in predicates
 mlpi_call(_, true).
 mlpi_call(Head, var(A)) :- !, call_(Head, var(A)).
@@ -198,22 +195,18 @@ mlpi_call(Head, assertz(Term)) :-
 mlpi_call(_, Goal) :-
     functor(Goal, F, N), functor(Copy, F, N),
     mlpi_clauses(Copy, GuardBody),
-    debug(mlpi, ':~p', [mlpi_clauses(Goal, Copy, GuardBody)]),
     ( GuardBody = (Guard | Body)
     -> Goal = Copy,
-       debug(mlpi, ':~p', [mlpi_call1(Guard)]),
        mlpi_call(Goal, Guard),
-       debug(mlpi, ':~p', [mlpi_call2(Body)]),
        trust(Goal, Body)
     ; Goal = Copy,
-      debug(mlpi, ':~p', [mlpi_call3(GuardBody)]),
       trust(Goal, GuardBody) ).
 call_(Head, DispGoal, RealGoal) :-
-    ( call(RealGoal) -> dwriteln(success(Head, DispGoal))
-    ; dwriteln(fail(Head, DispGoal)), !, fail ).
+    ( call(RealGoal) -> debug(mlpi, '~p', [success(Head, DispGoal)])
+    ; debug(mlpi, '~p', [fail(Head, DispGoal)]), !, fail ).
 call_(Head, Goal) :-
-    ( call(Goal) -> dwriteln(success(Head, Goal))
-    ; dwriteln(fail(Head, Goal)), !, fail ).
+    ( call(Goal) -> debug(mlpi, '~p', [success(Head, Goal)])
+    ; debug(mlpi, '~p', [fail(Head, Goal)]), !, fail ).
 trust(Head, (P, Q)) :- trust(Head, P), trust(Head, Q).
 trust(_, true).
 trust(Head, P) :-
