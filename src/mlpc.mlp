@@ -4,9 +4,9 @@ main([_|Argv]) :-
     % debug(translate),
     debug(main, ':~p', [parse_args]),
     parse_args(Argv, SourceFiles, Opts-[]),
-    append_runtime_source(SourceFiles, SourceFiles2),
+    append_runtime_sources(SourceFiles, SourceFiles2),
     load_term_data(SourceFiles2, TermData-[]),
-    preprocess(TermData, PTermData),
+    preprocess_dcg(TermData, PTermData),
     debug(main, ':~p', [translate]),
     translate(PTermData, PrologTermData),
     debug(main, ':~p', [write_file_header]),
@@ -15,15 +15,18 @@ main([_|Argv]) :-
     debug(main, ':~p', [write_term_data]),
     write_term_data(PrologTermData, IO1).
 
-append_runtime_source([], SourceFiles2) :-
-    SourceFiles2 = ['src/mlpc_runtime.mlp'].
-append_runtime_source([SourceFile|SourceFiles], SourceFiles2) :-
+append_runtime_sources([], SourceFiles2) :-
+    SourceFiles2 = ['src/mlpc_runtime.mlp', 'src/mlpc_preprocess.mlp'].
+append_runtime_sources([SourceFile|SourceFiles], SourceFiles2) :-
     SourceFile = 'src/mlpc_runtime.mlp' |
-    append_runtime_source(SourceFiles, SourceFiles2).
+    append_runtime_sources(SourceFiles, SourceFiles2).
+append_runtime_sources([SourceFile|SourceFiles], SourceFiles2) :-
+    SourceFile = 'src/mlpc_preprocess.mlp' |
+    append_runtime_sources(SourceFiles, SourceFiles2).
 otherwise.
-append_runtime_source([SourceFile|SourceFiles], SourceFiles2) :-
+append_runtime_sources([SourceFile|SourceFiles], SourceFiles2) :-
     SourceFiles2 = [SourceFile|SourceFiles1],
-    append_runtime_source(SourceFiles, SourceFiles1).
+    append_runtime_sources(SourceFiles, SourceFiles1).
 
 parse_args(Argv, SourceFiles, Options-Options2) :-
     phrase(opt_parse_dcg(SourceFiles, Options-Options2), Argv, []).
@@ -132,7 +135,7 @@ read_all_terms_aux(Term, _, IO-IO2, _, Terms-Terms2) :-
 read_all_terms_aux(Term, _, IO-IO2, Stream, Terms-Terms2) :-
     Term = otherwise | read_all_terms(IO-IO2, Stream, Terms-Terms2).
 read_all_terms_aux(Term, NameVars, IO-IO2, Stream, Terms-Terms2) :-
-    preprocess_term(Term, PreprocessedTerm),
+    preprocess_dcg_term(Term, PreprocessedTerm),
     Terms = [term_data(PreprocessedTerm, NameVars)|Terms1],
     read_all_terms(IO-IO2, Stream, Terms1-Terms2).
 

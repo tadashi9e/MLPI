@@ -1,23 +1,26 @@
 % -*- mode: prolog; coding:utf-8 -*-
 main([_|Argv]) :-
     parse_args(Argv, SourceFiles, _-[]),
-    append_runtime_source(SourceFiles, SourceFiles2),
+    append_runtime_sources(SourceFiles, SourceFiles2),
     load_term_data(SourceFiles2, TermData-[]),
-    preprocess(TermData, PTermData),
+    preprocess_dcg(TermData, PTermData),
     translate(PTermData, PrologTermData),
     iostream(IO),
     write_file_header(SourceFiles2, IO-IO1),
     write_term_data(PrologTermData, IO1).
 
-append_runtime_source([], SourceFiles2) :-
-    SourceFiles2 = ['src/mlpc_opt_runtime.mlp'].
-append_runtime_source([SourceFile|SourceFiles], SourceFiles2) :-
+append_runtime_sources([], SourceFiles2) :-
+    SourceFiles2 = ['src/mlpc_opt_runtime.mlp', 'src/mlpc_preprocess.mlp'].
+append_runtime_sources([SourceFile|SourceFiles], SourceFiles2) :-
     SourceFile = 'src/mlpc_opt_runtime.mlp' |
-    append_runtime_source(SourceFiles, SourceFiles2).
+    append_runtime_sources(SourceFiles, SourceFiles2).
+append_runtime_sources([SourceFile|SourceFiles], SourceFiles2) :-
+    SourceFile = 'src/mlpc_preprocess.mlp' |
+    append_runtime_sources(SourceFiles, SourceFiles2).
 otherwise.
-append_runtime_source([SourceFile|SourceFiles], SourceFiles2) :-
+append_runtime_sources([SourceFile|SourceFiles], SourceFiles2) :-
     SourceFiles2 = [SourceFile|SourceFiles1],
-    append_runtime_source(SourceFiles, SourceFiles1).
+    append_runtime_sources(SourceFiles, SourceFiles1).
 
 parse_args(Argv, SourceFiles, Options-Options2) :-
     phrase(opt_parse_dcg(SourceFiles, Options-Options2), Argv, []).
@@ -75,7 +78,7 @@ read_all_terms_aux(Term, _, IO-IO2, _, Terms-Terms2) :-
 read_all_terms_aux(Term, _, IO-IO2, Stream, Terms-Terms2) :-
     Term = otherwise | read_all_terms(IO-IO2, Stream, Terms-Terms2).
 read_all_terms_aux(Term, NameVars, IO-IO2, Stream, Terms-Terms2) :-
-    preprocess_term(Term, PreprocessedTerm),
+    preprocess_dcg_term(Term, PreprocessedTerm),
     Terms = [term_data(PreprocessedTerm, NameVars)|Terms1],
     read_all_terms(IO-IO2, Stream, Terms1-Terms2).
 

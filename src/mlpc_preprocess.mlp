@@ -1,0 +1,80 @@
+% -*- mode: prolog; coding:utf-8 -*-
+% ----------------------------------------------------------------------
+% preprocessing for DCG
+% ----------------------------------------------------------------------
+preprocess_dcg([], []).
+preprocess_dcg([term_data(Term, NameVars)|Terms],
+           [term_data(PreProcessedTerm, NameVars)|Terms2]) :-
+    preprocess_dcg_term(Term, PreProcessedTerm),
+    preprocess_dcg(Terms, Terms2).
+preprocess_dcg_term((Head --> Guard | Body), _) :-
+    Pred = (Head --> Guard | Body),
+    may_be_stream(Guard), may_be_stream(Body) |
+    throw(error(invalid_predicate(Pred))).
+preprocess_dcg_term((Head --> Guard | Body), (Head2 :- Guard2 | Body2)) :-
+    Pred = (Head --> Guard | Body),
+    may_be_stream(Guard) |
+    preprocess_dcg_stream(Pred, Guard, In1-In2, Guard2),
+    Head =.. [F|Args], append(Args, [In1,In2], Args2),
+    Head2 =.. [F|Args2],
+    Body2 = Body.
+preprocess_dcg_term((Head --> Guard | Body), (Head2 :- Guard2 | Body2)) :-
+    Pred = (Head --> Guard | Body),
+    may_be_stream(Body) |
+    preprocess_dcg_stream(Pred, Body, Out1-Out2, Body2),
+    Head =.. [F|Args], append(Args, [Out1,Out2], Args2),
+    Head2 =.. [F|Args2],
+    Guard2 = Guard.
+preprocess_dcg_term((Head --> Body), (Head2 :- Body2)) :-
+    Pred = (Head --> Body),
+    may_be_stream(Body) |
+    preprocess_dcg_stream(Pred, Body, Out1-Out2, Body2),
+    Head =.. [F|Args], append(Args, [Out1,Out2], Args2),
+    Head2 =.. [F|Args2].
+otherwise.
+preprocess_dcg_term(Term, Term).
+
+may_be_stream(Gs) :- may_be_stream(Gs, false, Result), Result = true | true.
+may_be_stream(({_},   _), _, Flag2) :- Flag2 = true.
+may_be_stream(([],    _), _, Flag2) :- Flag2 = true.
+may_be_stream(([_|_], _), _, Flag2) :- Flag2 = true.
+may_be_stream((_, Gs), Flag, Flag2) :- may_be_stream(Gs, Flag, Flag2).
+may_be_stream({_},   _, Flag2) :- Flag2 = true.
+may_be_stream([],    _, Flag2) :- Flag2 = true.
+may_be_stream([_|_], _, Flag2) :- Flag2 = true.
+otherwise.
+may_be_stream(_, Flag, Flag2) :- Flag2 = Flag.
+
+preprocess_dcg_stream(Pred, (G,Gs), IO-IO2, Gs2) :-
+    G = [] |
+    preprocess_dcg_stream(Pred, Gs, IO-IO2, Gs2).
+preprocess_dcg_stream(Pred, (G,Gs), IO-IO3, (G2,Gs2)) :-
+    G = [_|_] |
+    extend_list(G, IO1-IO2), G2 = (IO = IO1),
+    preprocess_dcg_stream(Pred, Gs, IO2-IO3, Gs2).
+preprocess_dcg_stream(Pred, (G,Gs), IO-IO2, (G2,Gs2)) :-
+    G = {G0} |
+    G2 = G0, preprocess_dcg_stream(Pred, Gs, IO-IO2, Gs2).
+preprocess_dcg_stream(Pred, (G,Gs), IO-IO2, (G2,Gs2)) :-
+    G =.. [F|Args] |
+    append(Args, [IO,IO1], Args2),
+    G2 =.. [F|Args2], preprocess_dcg_stream(Pred, Gs, IO1-IO2, Gs2).
+preprocess_dcg_stream(_, G, IO-IO2, G2) :-
+    G = [] | G2 = (IO = IO2).
+preprocess_dcg_stream(_, G, IO-IO2, G2) :-
+    G = [_|_] |
+    extend_list(G, IO1-IO2), G2 = (IO = IO1).
+preprocess_dcg_stream(_, G, IO-IO2, G2) :-
+    G = {G0} | G2 = G0, IO = IO2.
+preprocess_dcg_stream(_, G, IO-IO2, G2) :-
+    G =.. [F|Args] |
+    append(Args, [IO,IO2], Args2),
+    G2 =.. [F|Args2].
+preprocess_dcg_stream(Pred, (G,_), _, _) :-
+    throw(error(invalid_predicate(Pred, G))).
+preprocess_dcg_stream(Pred, G, _, _) :-
+    throw(error(invalid_predicate(Pred, G))).
+
+extend_list([], List-List).
+extend_list([V|Values], List-List2) :-
+    List = [V|List1], extend_list(Values, List1-List2).
