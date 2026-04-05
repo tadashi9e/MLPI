@@ -73,8 +73,19 @@ In the REPL, you can load MLP files, execute predicates, and manipulate the know
 - `freeze`/2 support for delayed execution
 - Stream-style I/O
 - Pure Prolog backend
+- Debug output with improved formatting
 
 MLP removes wait from traditional GHC-style languages to keep the runtime simple and compilation predictable.
+
+### Debug Output
+
+MLP provides debug output for tracing execution. The format has been improved to:
+
+- `success(Name/Arity, guard, DispGoal)`: Guard succeeded
+- `crash(Name/Arity, Goal)`: Body failed (throws error)
+- `fail(Name/Arity, guard, Goal)`: Guard failed
+
+Enable debug with `-d` flag in compilers or `debug(mlpc).` in REPL. Disable with `nodebug(mlpc).`.
 
 --
 

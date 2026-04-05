@@ -50,9 +50,9 @@ write_file_header(SourceFiles, IO-IO1) :-
 write_term_data([], IO) :- IO = [told].
 write_term_data([TD|Terms], IO) :-
     TD = term_data(Term, NameVars) |
-    IO = [write_term(Term,
+    IO = [print_term(Term,
                      [variable_names(NameVars),
-                      numbervars(true), quoted(true)]),
+                      numbervars(true), tab_width(4)]),
           writeln('.') | IO2],
     write_term_data(Terms, IO2).
 

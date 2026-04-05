@@ -2,6 +2,7 @@ MLPI=./mlpi.pl
 MLPC=./mlpc.pl
 MLPC_OPT=./mlpc_opt.pl
 
+all: mlpc.pl mlpc_opt.pl repl.pl
 
 test:: check-tools test_call test_freeze test_dcg_in test_dcg_out
 

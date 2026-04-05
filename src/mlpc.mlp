@@ -49,7 +49,10 @@ write_file_header(SourceFiles, Opts, IO-IO3) :-
         format('% source: ~w~n', [SourceFiles]),
         writeln(':- initialization(main, main).'),
         writeln('% main wrapper'),
-        format('main(Args) :- g__main([\'~s\'|Args]).~n', FirstSourceFile),
+        writeln('main(Args) :-') | IO1],
+    append_debug(Opts, IO1-IO2),
+    IO2 = [
+        format('    g__main([\'~s\'|Args]).~n', FirstSourceFile),
         writeln('% runtime predicates'),
         writeln('% call wrapper'),
         writeln('m__rename__(\'=\', \'=\').'),
@@ -63,23 +66,28 @@ write_file_header(SourceFiles, Opts, IO-IO3) :-
         writeln('    g__call_goals(call(Goal), Goal, RealGoal),'),
         writeln('    call(RealGoal).'),
         writeln('m__guard__(Head, RealGoal) :- '),
-        writeln('    ( call(RealGoal) -> dwriteln(success(Head, RealGoal))'),
-        writeln('    ; dwriteln(fail(Head, RealGoal)), !, fail ).'),
+        writeln('    functor(Head, Name, Arity),'),
+        writeln('    ( call(RealGoal) -> debug(mlpc, \'~p\', [success(Name/Arity, guard, RealGoal)])'),
+        writeln('    ; debug(mlpc, \'~p\', [fail(Name/Arity, guard, RealGoal)]), !, fail ).'),
         writeln('m__guard__(Head, DispGoal, RealGoal) :- '),
-        writeln('    ( call(RealGoal) -> dwriteln(success(Head, DispGoal))'),
-        writeln('    ; dwriteln(fail(Head, DispGoal)), !, fail ).'),
+        writeln('    functor(Head, Name, Arity),'),
+        writeln('    ( call(RealGoal) -> debug(mlpc, \'~p\', [success(Name/Arity, guard, DispGoal)])'),
+        writeln('    ; debug(mlpc, \'~p\', [fail(Name/Arity, guard, RealGoal)]), !, fail ).'),
         writeln('m__body__(Head, RealGoal) :-'),
-        writeln('    ( call(RealGoal) -> dwriteln(success(Head, RealGoal))'),
-        writeln('    ; throw(error(failed_to_execute(Head, RealGoal),'),
+        writeln('    functor(Head, Name, Arity),'),
+        writeln('    ( call(RealGoal) -> debug(mlpc, \'~p\', [success(Name/Arity, body, RealGoal)])'),
+        writeln('    ; throw(error(crash(Name/Arity, RealGoal),'),
         writeln('                  context(Head, RealGoal))) ).'),
         writeln('m__body__(Head, DispGoal, RealGoal) :-'),
-        writeln('    ( call(RealGoal) -> dwriteln(success(Head, DispGoal))'),
-        writeln('    ; throw(error(failed_to_execute(Head, DispGoal),'),
+        writeln('    functor(Head, Name, Arity),'),
+        writeln('    ( call(RealGoal) -> debug(mlpc, \'~p\', [success(Name/Arity, body, DispGoal)])'),
+        writeln('    ; throw(error(crash(Name/Arity, DispGoal),'),
         writeln('            context(Head, DispGoal))) ).'),
         writeln('m__freeze__(Head, X, G) :-'),
-        writeln('    ( freeze(X, m__call__(G)) -> dwriteln(success(Head, freeze(X, G)))'),
-        writeln('    ; throw(error(failed_to_execute(Head, freeze(X, G),'),
-        writeln('                  context(Head, freeze(X, G))))) ).'),
+        writeln('    functor(Head, Name, Arity),'),
+        writeln('    ( freeze(X, m__call__(G)) -> debug(mlpc, \'~p\', [success(Name/Arity, freeze(X, G))])'),
+        writeln('    ; throw(error(crash(Name/Arity, freeze(X, G)),'),
+        writeln('                  context(Head, freeze(X, G)))) ).'),
         writeln('m__catch__(G, Error, Recover) :-'),
         writeln('    catch(m__call__(G), Error, m__call__(Recover)).'),
         writeln('m__abolish__(Name, Arity) :-'),
@@ -91,15 +99,13 @@ write_file_header(SourceFiles, Opts, IO-IO3) :-
         writeln('m__assertz__(Term) :-'),
         writeln('    g__translate([term_data(Term, [])], [term_data(Term2, _)]),'),
         writeln('    assertz(Term2).'),
-        writeln('% generated source codes')
-        | IO1],
-    append_dwriteln(Opts, IO1-IO2),
-    IO2 = [writeln('% generated source codes')| IO3].
-append_dwriteln([debug|_], IO-IO2) :-
-    IO = [writeln('dwriteln(Msg) :- writeln(Msg).') | IO2].
+        writeln('% generated source codes'),
+        writeln('% generated source codes') | IO3].
+append_debug([debug|_], IO-IO2) :-
+    IO = [
+        writeln('    debug(mlpc),') | IO2].
 otherwise.
-append_dwriteln(_, IO-IO2) :-
-    IO = [writeln('dwriteln(_).') | IO2].
+append_debug(_, IO-IO2) :- IO = IO2.
 
 write_term_data([], IO) :- IO = [told].
 write_term_data([TD|Terms], IO) :-

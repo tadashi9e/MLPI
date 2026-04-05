@@ -53,7 +53,7 @@ read_all_terms_aux(end_of_file, _, Terms-Terms2, FileIO-FileIO2) :-
 read_all_terms_aux(otherwise, Stream, Terms-Terms2, FileIO-FileIO2) :-
     read_all_terms(Stream, Terms-Terms2, FileIO-FileIO2).
 read_all_terms_aux(Term, Stream, Terms-Terms2, FileIO-FileIO2) :-
-    preprocess_term(Term, PreprocessedTerm),
+    preprocess_dcg_term(Term, PreprocessedTerm),
     Terms = [PreprocessedTerm|Terms1],
     read_all_terms(Stream, Terms1-Terms2, FileIO-FileIO2).
 % ----------------------------------------------------------------------

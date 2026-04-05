@@ -3,7 +3,8 @@
 % source: [src/mlpc.mlp,builtin.mlp,src/mlpc_runtime.mlp,src/mlpc_preprocess.mlp]
 :- initialization(main, main).
 % main wrapper
-main(Args) :- g__main(['src/mlpc.mlp'|Args]).
+main(Args) :-
+    g__main(['src/mlpc.mlp'|Args]).
 % runtime predicates
 % call wrapper
 m__rename__('=', '=').
@@ -17,23 +18,28 @@ m__call__(Goal) :-
     g__call_goals(call(Goal), Goal, RealGoal),
     call(RealGoal).
 m__guard__(Head, RealGoal) :- 
-    ( call(RealGoal) -> dwriteln(success(Head, RealGoal))
-    ; dwriteln(fail(Head, RealGoal)), !, fail ).
+    functor(Head, Name, Arity),
+    ( call(RealGoal) -> debug(mlpc, '~p', [success(Name/Arity, guard, RealGoal)])
+    ; debug(mlpc, '~p', [fail(Name/Arity, guard, RealGoal)]), !, fail ).
 m__guard__(Head, DispGoal, RealGoal) :- 
-    ( call(RealGoal) -> dwriteln(success(Head, DispGoal))
-    ; dwriteln(fail(Head, DispGoal)), !, fail ).
+    functor(Head, Name, Arity),
+    ( call(RealGoal) -> debug(mlpc, '~p', [success(Name/Arity, guard, DispGoal)])
+    ; debug(mlpc, '~p', [fail(Name/Arity, guard, RealGoal)]), !, fail ).
 m__body__(Head, RealGoal) :-
-    ( call(RealGoal) -> dwriteln(success(Head, RealGoal))
-    ; throw(error(failed_to_execute(Head, RealGoal),
+    functor(Head, Name, Arity),
+    ( call(RealGoal) -> debug(mlpc, '~p', [success(Name/Arity, body, RealGoal)])
+    ; throw(error(crash(Name/Arity, RealGoal),
                   context(Head, RealGoal))) ).
 m__body__(Head, DispGoal, RealGoal) :-
-    ( call(RealGoal) -> dwriteln(success(Head, DispGoal))
-    ; throw(error(failed_to_execute(Head, DispGoal),
+    functor(Head, Name, Arity),
+    ( call(RealGoal) -> debug(mlpc, '~p', [success(Name/Arity, body, DispGoal)])
+    ; throw(error(crash(Name/Arity, DispGoal),
             context(Head, DispGoal))) ).
 m__freeze__(Head, X, G) :-
-    ( freeze(X, m__call__(G)) -> dwriteln(success(Head, freeze(X, G)))
-    ; throw(error(failed_to_execute(Head, freeze(X, G),
-                  context(Head, freeze(X, G))))) ).
+    functor(Head, Name, Arity),
+    ( freeze(X, m__call__(G)) -> debug(mlpc, '~p', [success(Name/Arity, freeze(X, G))])
+    ; throw(error(crash(Name/Arity, freeze(X, G)),
+                  context(Head, freeze(X, G)))) ).
 m__catch__(G, Error, Recover) :-
     catch(m__call__(G), Error, m__call__(Recover)).
 m__abolish__(Name, Arity) :-
@@ -46,7 +52,6 @@ m__assertz__(Term) :-
     g__translate([term_data(Term, [])], [term_data(Term2, _)]),
     assertz(Term2).
 % generated source codes
-dwriteln(_).
 % generated source codes
 g__main([A|B]):-m__body__(main([A|B]),g__debug(main,':~p',[parse_args])),!,m__body__(main([A|B]),g__parse_args(B,C,D-[])),!,m__body__(main([A|B]),g__append_runtime_sources(C,E)),!,m__body__(main([A|B]),g__load_term_data(E,F-[])),!,m__body__(main([A|B]),g__preprocess_dcg(F,G)),!,m__body__(main([A|B]),g__debug(main,':~p',[translate])),!,m__body__(main([A|B]),g__translate(G,H)),!,m__body__(main([A|B]),g__debug(main,':~p',[write_file_header])),!,m__body__(main([A|B]),g__iostream(I)),!,m__body__(main([A|B]),g__write_file_header(E,D,I-J)),!,m__body__(main([A|B]),g__debug(main,':~p',[write_term_data])),!,m__body__(main([A|B]),g__write_term_data(H,J)).
 g__append_runtime_sources([],A):-m__body__(append_runtime_sources([],A),
@@ -74,7 +79,10 @@ g__write_file_header(A,B,C-D):-m__body__(write_file_header(A,B,C-D),A=[E|_]),!,m
 			format('% source: ~w~n',[A]),
 			writeln(':- initialization(main, main).'),
 			writeln('% main wrapper'),
-			format('main(Args) :- g__main([\'~s\'|Args]).~n',E),
+			writeln('main(Args) :-')
+		  | F
+		  ]),!,m__body__(write_file_header(A,B,C-D),g__append_debug(B,F-G)),!,m__body__(write_file_header(A,B,C-D),
+		  G = [ format('    g__main([\'~s\'|Args]).~n',E),
 			writeln('% runtime predicates'),
 			writeln('% call wrapper'),
 			writeln('m__rename__(\'=\', \'=\').'),
@@ -88,23 +96,28 @@ g__write_file_header(A,B,C-D):-m__body__(write_file_header(A,B,C-D),A=[E|_]),!,m
 			writeln('    g__call_goals(call(Goal), Goal, RealGoal),'),
 			writeln('    call(RealGoal).'),
 			writeln('m__guard__(Head, RealGoal) :- '),
-			writeln('    ( call(RealGoal) -> dwriteln(success(Head, RealGoal))'),
-			writeln('    ; dwriteln(fail(Head, RealGoal)), !, fail ).'),
+			writeln('    functor(Head, Name, Arity),'),
+			writeln('    ( call(RealGoal) -> debug(mlpc, \'~p\', [success(Name/Arity, guard, RealGoal)])'),
+			writeln('    ; debug(mlpc, \'~p\', [fail(Name/Arity, guard, RealGoal)]), !, fail ).'),
 			writeln('m__guard__(Head, DispGoal, RealGoal) :- '),
-			writeln('    ( call(RealGoal) -> dwriteln(success(Head, DispGoal))'),
-			writeln('    ; dwriteln(fail(Head, DispGoal)), !, fail ).'),
+			writeln('    functor(Head, Name, Arity),'),
+			writeln('    ( call(RealGoal) -> debug(mlpc, \'~p\', [success(Name/Arity, guard, DispGoal)])'),
+			writeln('    ; debug(mlpc, \'~p\', [fail(Name/Arity, guard, RealGoal)]), !, fail ).'),
 			writeln('m__body__(Head, RealGoal) :-'),
-			writeln('    ( call(RealGoal) -> dwriteln(success(Head, RealGoal))'),
-			writeln('    ; throw(error(failed_to_execute(Head, RealGoal),'),
+			writeln('    functor(Head, Name, Arity),'),
+			writeln('    ( call(RealGoal) -> debug(mlpc, \'~p\', [success(Name/Arity, body, RealGoal)])'),
+			writeln('    ; throw(error(crash(Name/Arity, RealGoal),'),
 			writeln('                  context(Head, RealGoal))) ).'),
 			writeln('m__body__(Head, DispGoal, RealGoal) :-'),
-			writeln('    ( call(RealGoal) -> dwriteln(success(Head, DispGoal))'),
-			writeln('    ; throw(error(failed_to_execute(Head, DispGoal),'),
+			writeln('    functor(Head, Name, Arity),'),
+			writeln('    ( call(RealGoal) -> debug(mlpc, \'~p\', [success(Name/Arity, body, DispGoal)])'),
+			writeln('    ; throw(error(crash(Name/Arity, DispGoal),'),
 			writeln('            context(Head, DispGoal))) ).'),
 			writeln('m__freeze__(Head, X, G) :-'),
-			writeln('    ( freeze(X, m__call__(G)) -> dwriteln(success(Head, freeze(X, G)))'),
-			writeln('    ; throw(error(failed_to_execute(Head, freeze(X, G),'),
-			writeln('                  context(Head, freeze(X, G))))) ).'),
+			writeln('    functor(Head, Name, Arity),'),
+			writeln('    ( freeze(X, m__call__(G)) -> debug(mlpc, \'~p\', [success(Name/Arity, freeze(X, G))])'),
+			writeln('    ; throw(error(crash(Name/Arity, freeze(X, G)),'),
+			writeln('                  context(Head, freeze(X, G)))) ).'),
 			writeln('m__catch__(G, Error, Recover) :-'),
 			writeln('    catch(m__call__(G), Error, m__call__(Recover)).'),
 			writeln('m__abolish__(Name, Arity) :-'),
@@ -116,13 +129,13 @@ g__write_file_header(A,B,C-D):-m__body__(write_file_header(A,B,C-D),A=[E|_]),!,m
 			writeln('m__assertz__(Term) :-'),
 			writeln('    g__translate([term_data(Term, [])], [term_data(Term2, _)]),'),
 			writeln('    assertz(Term2).'),
+			writeln('% generated source codes'),
 			writeln('% generated source codes')
-		  | F
-		  ]),!,m__body__(write_file_header(A,B,C-D),g__append_dwriteln(B,F-G)),!,m__body__(write_file_header(A,B,C-D),
-		  G=[writeln('% generated source codes')|D]).
-g__append_dwriteln([debug|A],B-C):-m__body__(append_dwriteln([debug|A],B-C),
-		  B=[writeln('dwriteln(Msg) :- writeln(Msg).')|C]).
-g__append_dwriteln(A,B-C):-m__body__(append_dwriteln(A,B-C),B=[writeln('dwriteln(_).')|C]).
+		  | D
+		  ]).
+g__append_debug([debug|A],B-C):-m__body__(append_debug([debug|A],B-C),
+		  B=[writeln('    debug(mlpc),')|C]).
+g__append_debug(A,B-C) :- m__body__(append_debug(A,B-C),B=C).
 g__write_term_data([],A) :- m__body__(write_term_data([],A),A=[told]).
 g__write_term_data([A|B],C):-m__guard__(write_term_data([A|B],C),A=term_data(D,E)),!,m__body__(write_term_data([A|B],C),
 		  C = [ print_term(D,[variable_names(E),tab_width(4)]),
@@ -167,6 +180,7 @@ g__functor(A,B,C) :- m__guard__(functor(A,B,C),functor(A,B,C)),!,true.
 g__phrase(A,B,C):-m__body__(phrase(A,B,C),A=..[D|E]),!,m__body__(phrase(A,B,C),g__append(E,[B,C],F)),!,m__body__(phrase(A,B,C),G=..[D|F]),!,m__body__(phrase(A,B,C),m__call__(G)).
 g__append(A,B,C) :- m__guard__(append(A,B,C),append(A,B,C)),!,true.
 g__debug(A) :- m__guard__(debug(A),debug(A)),!,true.
+g__nodebug(A) :- m__guard__(nodebug(A),nodebug(A)),!,true.
 g__debug(A,B,C) :- m__guard__(debug(A,B,C),debug(A,B,C)),!,true.
 g__write(A) :- m__guard__(write(A),write(A)),!,true.
 g__writeln(A) :- m__guard__(writeln(A),writeln(A)),!,true.

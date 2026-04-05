@@ -203,14 +203,17 @@ mlpi_call(_, Goal) :-
     ; Goal = Copy,
       trust(Goal, GuardBody) ).
 call_(Head, DispGoal, RealGoal) :-
-    ( call(RealGoal) -> debug(mlpi, '~p', [success(Head, DispGoal)])
-    ; debug(mlpi, '~p', [fail(Head, DispGoal)]), !, fail ).
+    functor(Head, Name, Arity),
+    ( call(RealGoal) -> debug(mlpi, '~p', [success(Name/Arity, guard, DispGoal)])
+    ; debug(mlpi, '~p', [fail(Name/Arity, guard, DispGoal)]), !, fail ).
 call_(Head, Goal) :-
-    ( call(Goal) -> debug(mlpi, '~p', [success(Head, Goal)])
-    ; debug(mlpi, '~p', [fail(Head, Goal)]), !, fail ).
+    functor(Head, Name, Arity),
+    ( call(Goal) -> debug(mlpi, '~p', [success(Name/Arity, guard, Goal)])
+    ; debug(mlpi, '~p', [fail(Name/Arity, guard, Goal)]), !, fail ).
 trust(Head, (P, Q)) :- trust(Head, P), trust(Head, Q).
 trust(_, true).
 trust(Head, P) :-
-    ( mlpi_call(Head, P) -> true
-    ; throw(error(failed_to_execute(Head, P),
+    functor(Head, Name, Arity),
+    ( mlpi_call(Head, P) -> debug(mlpi, '~p', [success(Name/Arity, body, P)])
+    ; throw(error(crash(Name/Arity, body, P),
                   context(Head, P))) ).
