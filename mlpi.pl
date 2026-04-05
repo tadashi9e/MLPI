@@ -9,6 +9,7 @@ main(Argv) :-
     debug(main, ':~p', [parse_args(Argv)]),
     ( parse_args(Argv, SourceFiles, Args)
     ; format(user_error, 'invalid arguments: ~w~n', [Argv]), fail), !,
+    debug(main, ':SourceFiles = ~p', [SourceFiles]),
     debug(main, ':Args = ~p', [Args]),
     debug(main, ':~p', [load_terms(SourceFiles)]),
     load_terms(SourceFiles, Terms-[]), !,
