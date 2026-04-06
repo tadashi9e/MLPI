@@ -166,6 +166,18 @@ remove_clause([Clause|Clauses], Func, Arity, Clauses2) :-
 
 mlpi_call(Head, (P, Q)) :-
     mlpi_call(Head, P), mlpi_call(Head, Q).
+mlpi_call(Head, (_ -> _)) :-
+    functor(Head, Name, Arity),
+    throw(error(crash(Name/Arity, compile, '"->" not allowed'),
+                context(Head))).
+mlpi_call(Head, (_ ; _)) :-
+    functor(Head, Name, Arity),
+    throw(error(crash(Name/Arity, compile, '";" not allowed'),
+                context(Head))).
+mlpi_call(Head, !) :-
+    functor(Head, Name, Arity),
+    throw(error(crash(Name/Arity, compile, '"!" not allowed'),
+                context(Head))).
 % built-in predicates
 mlpi_call(_, true).
 mlpi_call(Head, var(A)) :- !, call_(Head, var(A)).
@@ -211,6 +223,14 @@ call_(Head, Goal) :-
     ( call(Goal) -> debug(mlpi, '~p', [success(Name/Arity, guard, Goal)])
     ; debug(mlpi, '~p', [fail(Name/Arity, guard, Goal)]), !, fail ).
 trust(Head, (P, Q)) :- trust(Head, P), trust(Head, Q).
+trust(Head, (_ -> _)) :-
+    functor(Head, Name, Arity),
+    throw(error(crash(Name/Arity, compile, '"->" not allowed'),
+                context(Head))).
+trust(Head, (_ ; _)) :-
+    functor(Head, Name, Arity),
+    throw(error(crash(Name/Arity, compile, '";" not allowed'),
+                context(Head))).
 trust(_, true).
 trust(Head, P) :-
     functor(Head, Name, Arity),

@@ -29,7 +29,14 @@ translate(
 call_guards(Head, (G1, G2), (P1, P2)) :-
     call_guards(Head, G1, P1),
     call_guards(Head, G2, P2).
+call_guards(Head, (G1 -> G2), (P1 -> P2)) :-
+    call_guards(Head, G1, P1),
+    call_guards(Head, G2, P2).
+call_guards(Head, (G1 ; G2), (P1 ; P2)) :-
+    call_guards(Head, G1, P1),
+    call_guards(Head, G2, P2).
 call_guards(_, true, P) :- P = true.
+call_guards(_, !, P) :- P = !.
 call_guards(Head, var(X), P) :- P = m__guard__(Head, var(X)).
 call_guards(Head, nonvar(X), P) :- P = m__guard__(Head, nonvar(X)).
 call_guards(Head, integer(X), P) :- P = m__guard__(Head, integer(X)).
@@ -58,6 +65,18 @@ call_goals(Head, (P, Q), (P2, !, Q2)) :-
     call_goals(Head, P, P2),
     debug(translate, ':~p ~p', [call_goals2, call_goals(Head, Q, Q2)]),
     call_goals(Head, Q, Q2).
+call_goals(Head, (_ -> _), _) :-
+    functor(Head, Name, Arity),
+    prolog(throw(error(crash(Name/Arity, compile, '"->" not allowed in body'),
+                       context(Head)))).
+call_goals(Head, (_ ; _), _) :-
+    functor(Head, Name, Arity),
+    prolog(throw(error(crash(Name/Arity, compile, '";" not allowed in body'),
+                       context(Head)))).
+call_goals(Head, !, _) :-
+    functor(Head, Name, Arity),
+    prolog(throw(error(crash(Name/Arity, compile, '"!" not allowed in body'),
+                       context(Head)))).
 call_goals(_, true, true).
 call_goals(Head, A = B, P) :- P = m__body__(Head, (A = B)).
 call_goals(Head, A := B, P) :- P = m__body__(Head, (A is B)).

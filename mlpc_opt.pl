@@ -84,46 +84,52 @@ g__iostream_loop([prompt1(A)|B]) :- prompt1(A),!,g__iostream_loop(B).
 g__iostream_loop([read_term(A,B,C)|D]):-read_term(A,B,C),!,g__iostream_loop(D).
 g__iostream_loop([A|B]):-format(user_error,'error: unknown iostream operation: ~w~n',[A]),!,g__iostream_loop(B).
 g__translate([],[]).
-g__translate([term_data((A:-B|C),D)|E],[term_data((F:-G,!,H),D)|I]):-g__call_guards(B,G),!,g__call_goals(C,H),!,g__rename_term(A,F),!,g__translate(E,I).
-g__translate([term_data((A:-B),C)|D],[term_data((E:-F),C)|G]):-g__rename_term(A,E),!,g__call_goals(B,F),!,g__translate(D,G).
+g__translate([term_data((A:-B|C),D)|E],[term_data((F:-G,!,H),D)|I]):-g__call_guards(A,B,G),!,g__call_goals(A,C,H),!,g__rename_term(A,F),!,g__translate(E,I).
+g__translate([term_data((A:-B),C)|D],[term_data((E:-F),C)|G]):-g__rename_term(A,E),!,g__call_goals(A,B,F),!,g__translate(D,G).
 g__translate([term_data(A,B)|C],[term_data(D,B)|E]):-g__rename_term(A,D),!,g__translate(C,E).
-g__call_guards((A,B),(C,D)) :- g__call_guards(A,C),!,g__call_guards(B,D).
-g__call_guards(true,A) :- A=true.
-g__call_guards(var(A),B) :- B=var(A).
-g__call_guards(nonvar(A),B) :- B=nonvar(A).
-g__call_guards(integer(A),B) :- B=integer(A).
-g__call_guards(A is B,C) :- C=(A is B).
-g__call_guards(A:=B,C) :- C=(A is B).
-g__call_guards(A=B,C) :- C=(A=B).
-g__call_guards(A=\=B,C) :- C=(A=\=B).
-g__call_guards(A=:=B,C) :- C=(A=:=B).
-g__call_guards(A<B,C) :- C=(A<B).
-g__call_guards(A>B,C) :- C=(A>B).
-g__call_guards(A=<B,C) :- C=(A=<B).
-g__call_guards(A>=B,C) :- C=(A>=B).
-g__call_guards(A=..B,C) :- C=(A=..B).
-g__call_guards(prolog(A),B) :- B=A.
-g__call_guards(call(A),B) :- B=g__m__call__(A).
-g__call_guards(freeze(A,B),C) :- C=g__m__freeze__(A,B).
-g__call_guards(catch(A,B,C),D) :- D=g__m__catch__(A,B,C).
-g__call_guards(abolish(A,B),C) :- C=g__m__abolish__(A,B).
-g__call_guards(asserta(A),B) :- B=g__m__asserta__(A).
-g__call_guards(assertz(A),B) :- B=g__m__assertz__(A).
-g__call_guards(A,B) :- g__rename_term(A,C),!,B=C.
-g__call_goals((A,B),(C,!,D)) :- g__call_goals(A,C),!,g__call_goals(B,D).
-g__call_goals(true,true).
-g__call_goals(A is B,C) :- C=(A is B).
-g__call_goals(A:=B,C) :- C=(A is B).
-g__call_goals(A=B,C) :- C=(A=B).
-g__call_goals(A=..B,C) :- C=(A=..B).
-g__call_goals(prolog(A),B) :- B=A.
-g__call_goals(call(A),B) :- B=g__m__call__(A).
-g__call_goals(freeze(A,B),C) :- C=g__m__freeze__(A,B).
-g__call_goals(catch(A,B,C),D) :- D=g__m__catch__(A,B,C).
-g__call_goals(abolish(A,B),C) :- C=g__m__abolish__(A,B).
-g__call_goals(asserta(A),B) :- B=g__m__asserta__(A).
-g__call_goals(assertz(A),B) :- B=g__m__assertz__(A).
-g__call_goals(A,B) :- g__rename_term(A,C),!,B=C.
+g__call_guards(A,(B,C),(D,E)):-g__call_guards(A,B,D),!,g__call_guards(A,C,E).
+g__call_guards(_,(A->B),(C->D)):-g__call_guards(_,A,C),!,g__call_guards(_,B,D).
+g__call_guards(A,(B;C),(D;E)):-g__call_guards(A,B,D),!,g__call_guards(A,C,E).
+g__call_guards(_,true,A) :- A=true.
+g__call_guards(_,!,A) :- A=!.
+g__call_guards(_,var(A),B) :- B=var(A).
+g__call_guards(_,nonvar(A),B) :- B=nonvar(A).
+g__call_guards(_,integer(A),B) :- B=integer(A).
+g__call_guards(_,A is B,C) :- C=(A is B).
+g__call_guards(_,A:=B,C) :- C=(A is B).
+g__call_guards(_,A=B,C) :- C=(A=B).
+g__call_guards(_,A=\=B,C) :- C=(A=\=B).
+g__call_guards(_,A=:=B,C) :- C=(A=:=B).
+g__call_guards(_,A<B,C) :- C=(A<B).
+g__call_guards(_,A>B,C) :- C=(A>B).
+g__call_guards(_,A=<B,C) :- C=(A=<B).
+g__call_guards(_,A>=B,C) :- C=(A>=B).
+g__call_guards(_,A=..B,C) :- C=(A=..B).
+g__call_guards(_,prolog(A),B) :- B=A.
+g__call_guards(_,call(A),B) :- B=g__m__call__(A).
+g__call_guards(_,freeze(A,B),C) :- C=g__m__freeze__(A,B).
+g__call_guards(_,catch(A,B,C),D) :- D=g__m__catch__(A,B,C).
+g__call_guards(_,abolish(A,B),C) :- C=g__m__abolish__(A,B).
+g__call_guards(_,asserta(A),B) :- B=g__m__asserta__(A).
+g__call_guards(_,assertz(A),B) :- B=g__m__assertz__(A).
+g__call_guards(_,A,B) :- g__rename_term(A,C),!,B=C.
+g__call_goals(A,(B,C),(D,!,E)):-g__call_goals(A,B,D),!,g__call_goals(A,C,E).
+g__call_goals(A,(_->_),_):-g__functor(A,B,C),!,throw(error(crash(B/C,compile,'"->" not allowed in body'),context(A))).
+g__call_goals(A,(_;_),_):-g__functor(A,B,C),!,throw(error(crash(B/C,compile,'";" not allowed in body'),context(A))).
+g__call_goals(A,!,_):-g__functor(A,B,C),!,throw(error(crash(B/C,compile,'"!" not allowed in body'),context(A))).
+g__call_goals(_,true,true).
+g__call_goals(_,A is B,C) :- C=(A is B).
+g__call_goals(_,A:=B,C) :- C=(A is B).
+g__call_goals(_,A=B,C) :- C=(A=B).
+g__call_goals(_,A=..B,C) :- C=(A=..B).
+g__call_goals(_,prolog(A),B) :- B=A.
+g__call_goals(_,call(A),B) :- B=g__m__call__(A).
+g__call_goals(_,freeze(A,B),C) :- C=g__m__freeze__(A,B).
+g__call_goals(_,catch(A,B,C),D) :- D=g__m__catch__(A,B,C).
+g__call_goals(_,abolish(A,B),C) :- C=g__m__abolish__(A,B).
+g__call_goals(_,asserta(A),B) :- B=g__m__asserta__(A).
+g__call_goals(_,assertz(A),B) :- B=g__m__assertz__(A).
+g__call_goals(_,A,B) :- g__rename_term(A,C),!,B=C.
 g__rename_term(A,B) :- A=..[C|D],!,g__atom_concat(g__,C,E),!,B=..[E|D].
 g__m__rename__(A,B) :- atom_concat(g__,A,B).
 g__m__rename_term__(A,B) :- A=..[C|D],!,g__m__rename__(C,E),!,B=..[E|D].

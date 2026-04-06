@@ -134,7 +134,7 @@ queen_mlpc_opt::
 # ----------------------------------------------------------------------
 # generate mlpc.pl
 # ----------------------------------------------------------------------
-bootstrap/mlpc.stg3.pl: src/mlpc.mlp src/mlpc_runtime.mlp src/mlpc_preprocess.mlp builtin.mlp
+bootstrap/mlpc.stg3.pl: ./mlpi.pl src/mlpc.mlp src/mlpc_runtime.mlp src/mlpc_preprocess.mlp builtin.mlp
 	mkdir -p bootstrap && \
 	swipl mlpi.pl -- src/mlpc.mlp src/mlpc_runtime.mlp src/mlpc_preprocess.mlp builtin.mlp -- src/mlpc.mlp src/mlpc_runtime.mlp src/mlpc_preprocess.mlp builtin.mlp > bootstrap/mlpc.stg1.pl && \
 	swipl bootstrap/mlpc.stg1.pl -- src/mlpc.mlp src/mlpc_runtime.mlp builtin.mlp > bootstrap/mlpc.stg2.pl && \
@@ -148,7 +148,7 @@ mlpc.pl: bootstrap/mlpc.stg3.pl
 # ----------------------------------------------------------------------
 # generate mlpc_opt.pl
 # ----------------------------------------------------------------------
-bootstrap/mlpc_opt.stg3.pl:: src/mlpc_opt.mlp src/mlpc_opt_runtime.mlp src/mlpc_preprocess.mlp builtin.mlp
+bootstrap/mlpc_opt.stg3.pl:: ./mlpi.pl src/mlpc_opt.mlp src/mlpc_opt_runtime.mlp src/mlpc_preprocess.mlp builtin.mlp
 	mkdir -p bootstrap && \
 	swipl ./mlpi.pl -- src/mlpc_opt.mlp src/mlpc_opt_runtime.mlp src/mlpc_preprocess.mlp builtin.mlp -- src/mlpc_opt.mlp src/mlpc_opt_runtime.mlp src/mlpc_preprocess.mlp builtin.mlp > bootstrap/mlpc_opt.stg1.pl && \
 	swipl bootstrap/mlpc_opt.stg1.pl -- src/mlpc_opt.mlp src/mlpc_opt_runtime.mlp builtin.mlp > bootstrap/mlpc_opt.stg2.pl && \

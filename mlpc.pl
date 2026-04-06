@@ -239,7 +239,10 @@ g__translate([term_data(A,B)|C],[term_data(D,B)|E]):-m__body__(translate([term_d
 		  g__rename_term(A,D)),!,m__body__(translate([term_data(A,B)|C],[term_data(D,B)|E]),
 		  g__translate(C,E)).
 g__call_guards(A,(B,C),(D,E)):-m__body__(call_guards(A,(B,C),(D,E)),g__call_guards(A,B,D)),!,m__body__(call_guards(A,(B,C),(D,E)),g__call_guards(A,C,E)).
+g__call_guards(A,(B->C),(D->E)):-m__body__(call_guards(A,(B->C),(D->E)),g__call_guards(A,B,D)),!,m__body__(call_guards(A,(B->C),(D->E)),g__call_guards(A,C,E)).
+g__call_guards(A,(B;C),(D;E)):-m__body__(call_guards(A,(B;C),(D;E)),g__call_guards(A,B,D)),!,m__body__(call_guards(A,(B;C),(D;E)),g__call_guards(A,C,E)).
 g__call_guards(A,true,B) :- m__body__(call_guards(A,true,B),B=true).
+g__call_guards(A,!,B) :- m__body__(call_guards(A,!,B),B=!).
 g__call_guards(A,var(B),C):-m__body__(call_guards(A,var(B),C),C=m__guard__(A,var(B))).
 g__call_guards(A,nonvar(B),C):-m__body__(call_guards(A,nonvar(B),C),C=m__guard__(A,nonvar(B))).
 g__call_guards(A,integer(B),C):-m__body__(call_guards(A,integer(B),C),C=m__guard__(A,integer(B))).
@@ -267,6 +270,15 @@ g__call_guards(A,B,C):-m__body__(call_guards(A,B,C),g__rename_term(B,D)),!,m__bo
 g__call_goals(A,(B,C),(D,!,E)):-m__body__(call_goals(A,(B,C),(D,!,E)),
 		  g__debug(translate,':~p ~p',[call_goals1,call_goals(A,B,D)])),!,m__body__(call_goals(A,(B,C),(D,!,E)),g__call_goals(A,B,D)),!,m__body__(call_goals(A,(B,C),(D,!,E)),
 		  g__debug(translate,':~p ~p',[call_goals2,call_goals(A,C,E)])),!,m__body__(call_goals(A,(B,C),(D,!,E)),g__call_goals(A,C,E)).
+g__call_goals(A,(B->C),D):-m__body__(call_goals(A,(B->C),D),g__functor(A,E,F)),!,m__body__(call_goals(A,(B->C),D),
+		  throw(error(crash(E/F,compile,'"->" not allowed in body'),
+					  context(A)))).
+g__call_goals(A,(B;C),D):-m__body__(call_goals(A,(B;C),D),g__functor(A,E,F)),!,m__body__(call_goals(A,(B;C),D),
+		  throw(error(crash(E/F,compile,'";" not allowed in body'),
+					  context(A)))).
+g__call_goals(A,!,B):-m__body__(call_goals(A,!,B),g__functor(A,C,D)),!,m__body__(call_goals(A,!,B),
+		  throw(error(crash(C/D,compile,'"!" not allowed in body'),
+					  context(A)))).
 g__call_goals(_,true,true).
 g__call_goals(A,B=C,D):-m__body__(call_goals(A,B=C,D),D=m__body__(A,B=C)).
 g__call_goals(A,B:=C,D):-m__body__(call_goals(A,B:=C,D),D=m__body__(A,B is C)).
