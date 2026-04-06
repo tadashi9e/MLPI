@@ -231,6 +231,10 @@ trust(Head, (_ ; _)) :-
     functor(Head, Name, Arity),
     throw(error(crash(Name/Arity, compile, '";" not allowed'),
                 context(Head))).
+trust(Head, !) :-
+    functor(Head, Name, Arity),
+    throw(error(crash(Name/Arity, compile, '"!" not allowed'),
+                context(Head))).
 trust(_, true).
 trust(Head, P) :-
     functor(Head, Name, Arity),
