@@ -1,13 +1,19 @@
 % -*- mode: prolog; coding:utf-8 -*-
 main([_|Argv]) :-
-    parse_args(Argv, SourceFiles, _-[]),
+    % debug(main),
+    % debug(translate),
+    debug(main, '~p: ~p', [main/1, parse_args]),
+    parse_args(Argv, SourceFiles, Opts-[]),
     append_runtime_sources(SourceFiles, SourceFiles2),
     load_term_data(SourceFiles2, TermData-[]),
-    preprocess_dcg(TermData, PTermData),
-    translate(PTermData, PrologTermData),
+    debug(main, '~p: ~p', [main/1, translate]),
+    '$__translate__'(TermData, PrologTermData),
+    debug(main, '~p: ~p', [main/1, write_file_header]),
     iostream(IO),
-    write_file_header(SourceFiles2, IO-IO1),
-    write_term_data(PrologTermData, IO1).
+    write_file_header(SourceFiles2, Opts, IO-IO1),
+    debug(main, '~p: ~p', [main/1, write_term_data]),
+    write_term_data(PrologTermData, IO1),
+    debug(main, '~p: ~p', [main/1, done]).
 
 append_runtime_sources([], SourceFiles2) :-
     SourceFiles2 = ['src/mlpc_opt_runtime.mlp', 'src/mlpc_preprocess.mlp'].
@@ -35,7 +41,7 @@ opt_parse_dcg([SourceFile | SourceFiles], Options-Options2) -->
     opt_parse_dcg(SourceFiles, Options-Options2) | true.
 opt_parse_dcg([], Options-Options) --> [] | true.
 
-write_file_header(SourceFiles, IO-IO1) :-
+write_file_header(SourceFiles, Opts, IO-IO3) :-
     SourceFiles = [FirstSourceFile|_],
     IO = [
         writeln('#!/usr/bin/env swipl'),
@@ -43,11 +49,19 @@ write_file_header(SourceFiles, IO-IO1) :-
         format('% source: ~w~n', [SourceFiles]),
         writeln(':- initialization(\'$_main\', main).'),
         writeln('% main wrapper'),
-        writeln('\'$_main\' :-'),
+        writeln('\'$_main\' :-') | IO1],
+    append_debug(Opts, IO1-IO2),
+    IO2 = [
         writeln('    current_prolog_flag(argv, Argv),'),
-        format('    g__main([\'~s\'|Argv]).~n', FirstSourceFile),
+        format('    main([\'~s\'|Argv]).~n', FirstSourceFile),
         writeln('% generated source codes')
-        | IO1].
+        | IO3].
+
+append_debug([debug|_], IO-IO2) :-
+    IO = [
+        writeln('    debug(mlpc),') | IO2].
+otherwise.
+append_debug(_, IO-IO2) :- IO = IO2.
 
 write_term_data([], IO) :- IO = [told].
 write_term_data([TD|Terms], IO) :-
@@ -80,8 +94,7 @@ read_all_terms_aux(Term, _, IO-IO2, _, Terms-Terms2) :-
 read_all_terms_aux(Term, _, IO-IO2, Stream, Terms-Terms2) :-
     Term = otherwise | read_all_terms(IO-IO2, Stream, Terms-Terms2).
 read_all_terms_aux(Term, NameVars, IO-IO2, Stream, Terms-Terms2) :-
-    preprocess_dcg_term(Term, PreprocessedTerm),
-    Terms = [term_data(PreprocessedTerm, NameVars)|Terms1],
+    Terms = [term_data(Term, NameVars)|Terms1],
     read_all_terms(IO-IO2, Stream, Terms1-Terms2).
 
 report_singletons(_, _, [], IO-IO).

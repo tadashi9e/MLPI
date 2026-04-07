@@ -192,13 +192,38 @@ mlpi_call(Head, A > B) :- !, call_(Head, A > B).
 mlpi_call(Head, A =< B) :- !, call_(Head, A =< B).
 mlpi_call(Head, A >= B) :- !, call_(Head, A >= B).
 mlpi_call(Head, F =.. L) :- !, call_(Head, F =.. L).
-mlpi_call(Head, prolog(P)) :- call_(Head, P).
-mlpi_call(Head, call(P)) :- call_(Head, mlpi_call(call(P), P)).
+mlpi_call(Head, append(A, B, C)) :- !, call_(Head, append(A, B, C)).
+mlpi_call(Head, term_to_atom(T, A)) :- !, call_(Head, term_to_atom(T, A)).
+mlpi_call(Head, atom_chars(A, Cs)) :- !, call_(Head, atom_chars(A, Cs)).
+mlpi_call(Head, atom_concat(A, B, C)) :- !, call_(Head, atom_concat(A, B, C)).
+mlpi_call(Head, atom_number(A, N)) :- !, call_(Head, atom_number(A, N)).
+mlpi_call(Head, term_string(T, S, Opts)) :-
+    !, call_(Head, term_string(T, S, Opts)).
+mlpi_call(Head, functor(Func, Name, Arity)) :-
+    !, call_(Head, functor(Func, Name, Arity)).
+mlpi_call(Head, phrase(P, A, B)) :-
+    !,
+    P =.. [F|Args],
+    append(Args, [A, B], Args2),
+    P2 =.. [F|Args2],
+    mlpi_call(Head, P2).
+mlpi_call(Head, debug(Topic)) :- !, call_(Head, debug(Topic)).
+mlpi_call(Head, debug(Topic, Format, Args)) :-
+    !, call_(Head, debug(Topic, Format, Args)).
+mlpi_call(Head, nodebug(Topic)) :- !, call_(Head, nodebug(Topic)).
+mlpi_call(Head, write(X)) :- !, call_(Head, write(X)).
+mlpi_call(Head, write(Stream, X)) :- !, call_(Head, write(Stream, X)).
+mlpi_call(Head, writeln(X)) :- !, call_(Head, writeln(X)).
+mlpi_call(Head, writeln(Stream, X)) :- !, call_(Head, writeln(Stream, X)).
+mlpi_call(Head, nl) :- !, call_(Head, nl).
+mlpi_call(Head, nl(Stream)) :- !, call_(Head, nl(Stream)).
+mlpi_call(Head, prolog(P)) :- !, call_(Head, P).
+mlpi_call(Head, call(P)) :- !, call_(Head, mlpi_call(call(P), P)).
 mlpi_call(Head, freeze(X, P)) :-
-    call_(Head, freeze(X, mlpi_call(freeze(X, P), P))).
+    !, call_(Head, freeze(X, mlpi_call(freeze(X, P), P))).
 mlpi_call(Head, catch(G, Error, Recover)) :-
-    call_(Head, catch(mlpi_call(catch(G, Error, Recover), G), Error,
-                      mlpi_call(catch(G, Error, Recover), Recover))).
+    !, call_(Head, catch(mlpi_call(catch(G, Error, Recover), G), Error,
+                         mlpi_call(catch(G, Error, Recover), Recover))).
 mlpi_call(Head, abolish(Func, Arity)) :-
     call_(Head, abolish(Func, Arity), mlpi_abolish(Func, Arity)).
 mlpi_call(Head, asserta(Term)) :-

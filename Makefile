@@ -4,13 +4,63 @@ MLPC_OPT=./mlpc_opt.pl
 
 all: mlpc.pl mlpc_opt.pl repl.pl
 
-test:: check-tools test_call test_freeze test_dcg_in test_dcg_out
+samples: samples/hello.pl samples/collatz.pl samples/primes.pl samples/primes2.pl samples/queen.pl
 
-hello:: hello_mlpi hello_mlpc hello_mlpc_opt
-collatz:: collatz_mlpi collatz_mlpc collatz_mlpc_opt
-primes:: primes_mlpi primes_mlpc primes_mlpc_opt
-primes2:: primes2_mlpi primes2_mlpc primes2_mlpc_opt
-queen:: queen_mlpi queen_mlpc queen_mlpc_opt
+test:: check-tools test_call test_freeze test_dcg_in test_dcg_out \
+ test_hello test_collatz test_primes test_primes2 test_queen
+
+test_hello::
+	./mlpi.pl samples/hello.mlp builtin.mlp -- mlpi. && \
+	./mlpc.pl samples/hello.mlp builtin.mlp > samples/hello.pl && \
+	chmod +x samples/hello.pl  && \
+	samples/hello.pl mlpc && \
+	./mlpc_opt.pl samples/hello.mlp builtin.mlp > samples/hello.pl && \
+	chmod +x samples/hello.pl && \
+	samples/hello.pl mlpc_opt
+
+test_collatz::
+	time ./mlpi.pl samples/collatz.mlp builtin.mlp -- 1234567 && \
+	./mlpc.pl samples/collatz.mlp builtin.mlp > samples/collatz.pl && \
+	chmod +x samples/collatz.pl && \
+	ls -l samples/collatz.pl && \
+	time samples/collatz.pl 1234567 && \
+	./mlpc_opt.pl samples/collatz.mlp builtin.mlp > samples/collatz.pl && \
+	chmod +x samples/collatz.pl && \
+	ls -l samples/collatz.pl && \
+	time samples/collatz.pl 1234567
+
+test_primes::
+	time ./mlpi.pl samples/primes.mlp builtin.mlp -- 10000 && \
+	./mlpc.pl samples/primes.mlp builtin.mlp > samples/primes.pl && \
+	chmod +x samples/primes.pl && \
+	ls -l samples/primes.pl && \
+	time samples/primes.pl 10000 && \
+	./mlpc_opt.pl samples/primes.mlp builtin.mlp > samples/primes.pl && \
+	chmod +x samples/primes.pl && \
+	ls -l samples/primes.pl && \
+	time samples/primes.pl 10000
+
+test_primes2::
+	time ./mlpi.pl samples/primes2.mlp builtin.mlp -- 10000 && \
+	./mlpc.pl samples/primes2.mlp builtin.mlp > samples/primes2.pl && \
+	chmod +x samples/primes2.pl && \
+	ls -l samples/primes2.pl && \
+	time samples/primes2.pl 10000 && \
+	./mlpc_opt.pl samples/primes2.mlp builtin.mlp > samples/primes2.pl && \
+	chmod +x samples/primes2.pl && \
+	ls -l samples/primes2.pl && \
+	time samples/primes2.pl 10000
+
+test_queen::
+	time ./mlpi.pl samples/queen.mlp builtin.mlp -- 10 |tail && \
+	./mlpc.pl samples/queen.mlp builtin.mlp > samples/queen.pl && \
+	chmod +x samples/queen.pl && \
+	ls -l samples/queen.pl && \
+	time samples/queen.pl 10 |tail && \
+	./mlpc_opt.pl samples/queen.mlp builtin.mlp > samples/queen.pl && \
+	chmod +x samples/queen.pl && \
+	ls -l samples/queen.pl && \
+	time samples/queen.pl 10 |tail
 
 clean:
 	rm -f samples/*.pl bootstrap/*.pl
@@ -68,69 +118,6 @@ test_mlpc_opt_dcg_out::
 	chmod +x samples/test_dcg_out.pl; \
 	samples/test_dcg_out.pl
 
-hello_mlpi::
-	./mlpi.pl samples/hello.mlp builtin.mlp -- mlpi.
-hello_mlpc::
-	./mlpc.pl samples/hello.mlp builtin.mlp > samples/hello.pl; \
-	chmod +x samples/hello.pl; \
-	samples/hello.pl mlpc
-hello_mlpc_opt::
-	./mlpc_opt.pl samples/hello.mlp builtin.mlp > samples/hello.pl; \
-	chmod +x samples/hello.pl; \
-	samples/hello.pl mlpc_opt
-
-collatz_mlpi::
-	time ./mlpi.pl samples/collatz.mlp builtin.mlp -- 1234567
-collatz_mlpc::
-	./mlpc.pl samples/collatz.mlp builtin.mlp > samples/collatz.pl; \
-	chmod +x samples/collatz.pl; \
-	ls -l samples/collatz.pl; \
-	time samples/collatz.pl 1234567
-collatz_mlpc_opt::
-	./mlpc_opt.pl samples/collatz.mlp builtin.mlp > samples/collatz.pl; \
-	chmod +x samples/collatz.pl; \
-	ls -l samples/collatz.pl; \
-	time samples/collatz.pl 1234567
-
-primes_mlpi::
-	time ./mlpi.pl samples/primes.mlp builtin.mlp -- 10000
-primes_mlpc::
-	./mlpc.pl samples/primes.mlp builtin.mlp > samples/primes.pl; \
-	chmod +x samples/primes.pl; \
-	ls -l samples/primes.pl; \
-	time samples/primes.pl 10000
-primes_mlpc_opt::
-	./mlpc_opt.pl samples/primes.mlp builtin.mlp > samples/primes.pl; \
-	chmod +x samples/primes.pl; \
-	ls -l samples/primes.pl; \
-	time samples/primes.pl 10000
-
-primes2_mlpi::
-	time ./mlpi.pl samples/primes2.mlp builtin.mlp -- 10000
-primes2_mlpc::
-	./mlpc.pl samples/primes2.mlp builtin.mlp > samples/primes2.pl; \
-	chmod +x samples/primes2.pl; \
-	ls -l samples/primes2.pl; \
-	time samples/primes2.pl 10000
-primes2_mlpc_opt::
-	./mlpc_opt.pl samples/primes2.mlp builtin.mlp > samples/primes2.pl; \
-	chmod +x samples/primes2.pl; \
-	ls -l samples/primes2.pl; \
-	time samples/primes2.pl 10000
-
-queen_mlpi::
-	time ./mlpi.pl samples/queen.mlp builtin.mlp -- 10 |tail
-queen_mlpc::
-	./mlpc.pl samples/queen.mlp builtin.mlp > samples/queen.pl; \
-	chmod +x samples/queen.pl; \
-	ls -l samples/queen.pl; \
-	time samples/queen.pl 10 |tail
-queen_mlpc_opt::
-	./mlpc_opt.pl samples/queen.mlp builtin.mlp > samples/queen.pl; \
-	chmod +x samples/queen.pl; \
-	ls -l samples/queen.pl; \
-	time samples/queen.pl 10 |tail
-
 # ----------------------------------------------------------------------
 # generate mlpc.pl
 # ----------------------------------------------------------------------
@@ -162,6 +149,26 @@ mlpc_opt.pl: bootstrap/mlpc_opt.stg3.pl
 # ----------------------------------------------------------------------
 # generate repl.pl
 # ----------------------------------------------------------------------
-repl.pl: src/repl.mlp mlpc.pl
-	swipl mlpc.pl -- src/repl.mlp builtin.mlp > repl.pl; \
+repl.pl: src/repl.mlp ./mlpc.pl
+	swipl ./mlpc.pl -- src/repl.mlp builtin.mlp > repl.pl && \
 	chmod +x repl.pl
+
+samples/hello.pl: samples/hello.mlp mlpc_opt.pl builtin.mlp
+	./mlpc_opt.pl samples/hello.mlp builtin.mlp > samples/hello.pl && \
+	chmod +x samples/hello.pl
+
+samples/collatz.pl: samples/collatz.mlp mlpc_opt.pl builtin.mlp
+	./mlpc_opt.pl samples/collatz.mlp builtin.mlp > samples/collatz.pl && \
+	chmod +x samples/collatz.pl
+
+samples/primes.pl: samples/primes.mlp mlpc_opt.pl builtin.mlp
+	./mlpc_opt.pl samples/primes.mlp builtin.mlp > samples/primes.pl && \
+	chmod +x samples/primes.pl
+
+samples/primes2.pl: samples/primes2.mlp mlpc_opt.pl builtin.mlp
+	./mlpc_opt.pl samples/primes2.mlp builtin.mlp > samples/primes2.pl && \
+	chmod +x samples/primes2.pl
+
+samples/queen.pl: samples/queen.mlp mlpc_opt.pl builtin.mlp
+	./mlpc_opt.pl samples/queen.mlp builtin.mlp > samples/queen.pl && \
+	chmod +x samples/queen.pl
