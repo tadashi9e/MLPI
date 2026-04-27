@@ -9,19 +9,18 @@ main([Program|_]) :-
 print_primes(Max) :-
     true |
     reserve(50, Ns0), Ps = [2|Ps1],
-    iostream([write('2')]),
-    print_primes_loop(3, Max, Ns0-_, Ps, Ps1),
-    iostream([writeln('.')]).
+    iostream([write('2')|IO]),
+    print_primes_loop(3, Max, Ns0-_, Ps, Ps1, IO).
 
-print_primes_loop(N0, Max, _, _, _) :-
-    N0 > Max | true.
-print_primes_loop(N0, Max, Ns0-Ns2, Ps, Ps0) :-
+print_primes_loop(N0, Max, _, _, _, IO) :-
+    N0 > Max | IO = [writeln('.')].
+print_primes_loop(N0, Max, Ns0-Ns2, Ps, Ps0, IO) :-
     N0 =< Max |
     gen(N0-N1, Max, Ns0-Ns1),
     filter(Ps, Ns0, Ps0-Ps1),
-    print(Ps0),
+    print(Ps0, IO-IO2),
     reserve(50, Ns1),
-    print_primes_loop(N1, Max, Ns1-Ns2, Ps, Ps1).
+    print_primes_loop(N1, Max, Ns1-Ns2, Ps, Ps1, IO2).
 
 reserve(0, _).
 reserve(N, Stream) :- Stream = [_|Stream1], N1 is N - 1, reserve(N1,Stream1).
@@ -44,6 +43,6 @@ is_prime(_, [P|_]) :- var(P) | true.
 is_prime(N, [_|_]) :- var(N) | true.
 is_prime(N, [P|Ps]) :- N mod P =\= 0, is_prime(N, Ps) | true.
 
-print(Ps) :- var(Ps) | iostream([nl]).
-print([P|_]) :- var(P) | iostream([nl]).
-print([P|Ps]) :- iostream([write(','), write(P)]), print(Ps).
+print(Ps, IO-IO2) :- var(Ps) | IO = [nl|IO2].
+print([P|_], IO-IO2) :- var(P) | IO = [nl|IO2].
+print([P|Ps], IO-IO2) :- IO = [write(','), write(P)|IO1], print(Ps, IO1-IO2).

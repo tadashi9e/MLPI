@@ -28,13 +28,16 @@ concat([W|X], Y, WZ) :- WZ = [W|Z], concat(X, Y, Z).
 
 main([_,Arg]) :-
     atom_number(Arg, N),
-    go(N, X),
-    report_results(Os-[], X), iostream(Os).
+    iostream(Os),
+    report_results(Os-[], X),
+    go(N, X).
 main([Prog|_]) :-
     iostream([write('usage: '), write(Prog), writeln(' <N>')]).
 
 report_results(Os-Os2, X) :-
     report_results(Os-Os2, X, 1).
+report_results(Os-Os2, X, N) :-
+    var(X) | freeze(X, report_results(Os-Os2, X, N)).
 report_results(Os-Os2, [], _) :-
     Os = Os2.
 report_results(Os-Os2, [X|Xs], N) :-

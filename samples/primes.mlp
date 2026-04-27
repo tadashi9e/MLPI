@@ -5,16 +5,23 @@ main([_, Arg]) :-
 main([Program|_]) :-
     iostream([write('usage: '), write(Program), write(' <N>'), nl]).
 
-primes(Max, Ps) :- true | gen(2, Max, Ns), sift(Ns, Ps).
+primes(Max, Ps) :- true | sift(Ns, Ps), gen(2, Max, Ns).
+
 gen(N0, Max, Ns0) :-
     N0 =< Max
     | Ns0 = [N0 | Ns1], N1 is N0 + 1, gen(N1, Max, Ns1).
 gen(N0, Max, Ns0) :-
     N0  > Max | Ns0 = [].
+
+sift(Ns, Ps) :- var(Ns) | freeze(Ns, sift(Ns, Ps)).
+sift([N|Ns], Ps) :- var(N) | freeze(N, sift([N|Ns], Ps)).
 sift([P|Xs1], Zs0) :-
     Zs0 = [P | Zs1], filter(P, Xs1, Ys), sift(Ys, Zs1).
 sift([], Zs0) :-
     Zs0 = [].
+
+filter(P, Xs, Ys) :- var(Xs) | freeze(Xs, filter(P, Xs, Ys)).
+filter(P, [X|Xs], Ys) :- var(X) | freeze(X, filter(P, [X|Xs], Ys)).
 filter(P, [X|Xs1], Ys0) :-
     X mod P =\= 0
     | Ys0 = [X | Ys1], filter(P, Xs1, Ys1).
