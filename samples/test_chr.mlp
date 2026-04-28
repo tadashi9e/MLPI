@@ -1,0 +1,16 @@
+% -*- mode: prolog; coding: utf-8-unix -*-
+
+:- chr_constraint primes/1, prime/1.
+
+primes(1) <=> true.
+primes(N) <=> N>1 | M is N-1, prime(N), primes(M).
+
+absorb(J) @ prime(I) \ prime(J) <=> J mod I =:= 0 | true.
+
+main([_, Arg]) :-
+    term_to_atom(N, Arg), integer(N)
+    | chr_post(primes(N)), chr_findall(X, prime(X), Sols),
+      writeln(Sols).
+otherwise.
+main([Program|_]) :-
+    iostream([write('usage: '), write(Program), write(' <N>'), nl]).

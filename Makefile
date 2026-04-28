@@ -4,7 +4,9 @@ MLPC_OPT=./mlpc_opt.pl
 
 all: mlpc.pl mlpc_opt.pl repl.pl
 
-samples: samples/hello.pl samples/collatz.pl samples/primes.pl samples/primes2.pl samples/queen.pl
+samples: samples/hello.pl samples/collatz.pl \
+ samples/primes.pl samples/primes2.pl samples/queen.pl \
+ samples/test_chr.pl
 
 test:: check-tools test_call test_freeze test_dcg_in test_dcg_out \
  test_hello test_collatz test_primes test_primes2 test_queen
@@ -153,22 +155,26 @@ repl.pl: src/repl.mlp ./mlpc.pl
 	swipl ./mlpc.pl -- src/repl.mlp builtin.mlp > repl.pl && \
 	chmod +x repl.pl
 
-samples/hello.pl: samples/hello.mlp mlpc_opt.pl builtin.mlp
+samples/hello.pl: ./mlpc_opt.pl samples/hello.mlp mlpc_opt.pl builtin.mlp
 	./mlpc_opt.pl samples/hello.mlp builtin.mlp > samples/hello.pl && \
 	chmod +x samples/hello.pl
 
-samples/collatz.pl: samples/collatz.mlp mlpc_opt.pl builtin.mlp
+samples/collatz.pl: ./mlpc_opt.pl samples/collatz.mlp mlpc_opt.pl builtin.mlp
 	./mlpc_opt.pl samples/collatz.mlp builtin.mlp > samples/collatz.pl && \
 	chmod +x samples/collatz.pl
 
-samples/primes.pl: samples/primes.mlp mlpc_opt.pl builtin.mlp
+samples/primes.pl: ./mlpc_opt.pl samples/primes.mlp mlpc_opt.pl builtin.mlp
 	./mlpc_opt.pl samples/primes.mlp builtin.mlp > samples/primes.pl && \
 	chmod +x samples/primes.pl
 
-samples/primes2.pl: samples/primes2.mlp mlpc_opt.pl builtin.mlp
+samples/primes2.pl: ./mlpc_opt.pl samples/primes2.mlp mlpc_opt.pl builtin.mlp
 	./mlpc_opt.pl samples/primes2.mlp builtin.mlp > samples/primes2.pl && \
 	chmod +x samples/primes2.pl
 
-samples/queen.pl: samples/queen.mlp mlpc_opt.pl builtin.mlp
+samples/queen.pl: ./mlpc_opt.pl samples/queen.mlp mlpc_opt.pl builtin.mlp
 	./mlpc_opt.pl samples/queen.mlp builtin.mlp > samples/queen.pl && \
 	chmod +x samples/queen.pl
+
+samples/test_chr.pl: ./mlpc_opt.pl samples/test_chr.mlp mlpc_opt.pl builtin.mlp
+	./mlpc_opt.pl samples/test_chr.mlp builtin.mlp > samples/test_chr.pl && \
+	chmod +x samples/test_chr.pl

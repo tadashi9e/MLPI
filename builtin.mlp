@@ -38,3 +38,18 @@ iostream_loop([Op|Cmds]) :-
     prolog(format(user_error, 'error: unknown iostream operation: ~w~n',
                   [Op])),
     iostream_loop(Cmds).
+
+% ----------------------------------------------------------------------
+% CHR
+% ----------------------------------------------------------------------
+chr_post(Constraint) :- prolog(call(Constraint)).
+chr_post_list([]).
+chr_post_list([C|Cs]) :- chr_post(C), chr_post_list(Cs).
+chr_findall(R, Constraint, Sols) :-
+    prolog(findall(R, find_chr_constraint(Constraint), Sols)).
+chr_findall(R, Constraint, Sols, SolsTail) :-
+    prolog(findall(R, find_chr_constraint(Constraint), Sols, SolsTail)).
+chr_findnsols(N, R, Constraint, Sols) :-
+    prolog(findnsols(N, R, find_chr_constraint(Constraint), Sols)).
+chr_findnsols(N, R, Constraint, Sols, SolsTail) :-
+    prolog(findnsols(N, R, find_chr_constraint(Constraint), Sols, SolsTail)).

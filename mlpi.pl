@@ -1,19 +1,20 @@
 #!/usr/bin/env swipl
 % -*- mode: prolog; coding:utf-8 -*-
 :- initialization(main, main).
+:- use_module(library(chr)).
 
 main(Argv) :-
     % debug(main),
     % debug(mlpi),
-    debug(main, ':Argv = ~p', [Argv]),
-    debug(main, ':~p', [parse_args(Argv)]),
+    debug(main, '~p: ~p', [main/1, 'Argv' = Argv]),
+    debug(main, '~p: ~p', [main/1, parse_args(Argv)]),
     ( parse_args(Argv, SourceFiles, Args)
     ; format(user_error, 'invalid arguments: ~w~n', [Argv]), fail), !,
-    debug(main, ':SourceFiles = ~p', [SourceFiles]),
-    debug(main, ':Args = ~p', [Args]),
-    debug(main, ':~p', [load_terms(SourceFiles)]),
+    debug(main, '~p: ~p', [main/1, 'SourceFiles' = SourceFiles]),
+    debug(main, '~p: ~p', [main/1, 'Args' = Args]),
+    debug(main, '~p: ~p', [main/1, load_terms(SourceFiles)]),
     load_terms(SourceFiles, Terms-[]), !,
-    debug(main, ':~p', [mlpi]),
+    debug(main, '~p: ~p', [main/1, mlpi(Args)]),
     mlpi(Terms, ['mlpi.pl'|Args]).
 
 writeall([]).
@@ -25,7 +26,8 @@ parse_args(['-d' | Argv], SourceFiles, Args) :-
     !, debug(mlpi),
     parse_args(Argv, SourceFiles, Args).
 parse_args(['--' | Argv], [], Args) :-
-    !, debug(main, 'parse_args(Args=~w)~n', [Argv]), Args = Argv.
+    !, debug(main, '~p: ~p', [parse_args/3, 'Argv' = Argv]),
+    Args = Argv.
 parse_args([SourceFile | Argv], [SourceFile|SourceFiles], Args) :-
     !, parse_args(Argv, SourceFiles, Args).
 parse_args([], [], []) :- !.
@@ -36,29 +38,45 @@ parse_args([], [], []) :- !.
 load_terms([], Terms-Terms) :- !.
 load_terms([SourceFile|SourceFiles], Terms-Terms2) :-
     open(SourceFile, read, Stream, [encoding(utf8)]),
-    read_all_terms(Stream, Terms-Terms1),
+    read_all_terms(SourceFile, Stream, Terms-Terms1),
     close(Stream),
     load_terms(SourceFiles, Terms1-Terms2).
-read_all_terms(Stream, Terms-Terms2) :-
-    read_term(Stream, Term,
-              [variable_names(NameVars),
-               singletons(Singletons)]),
-    report_singletons(Term, NameVars, Singletons),
+read_all_terms(SourceFile, Stream, Terms-Terms2) :-
+    stream_property(Stream, position(StartPos)),
+    read_single_term(SourceFile, Stream, Term, NameVars, Singletons),
+    debug(main, '~p: ~p', [read_all_terms/2, read_term(Term)]),
+    stream_position_data(line_count, StartPos, LineNo),
+    report_singletons(SourceFile, LineNo, Term, NameVars, Singletons),
     ( Term = end_of_file -> Terms = Terms2
-    ; Term = otherwise -> read_all_terms(Stream, Terms-Terms2)
+    ; Term = otherwise -> read_all_terms(SourceFile, Stream, Terms-Terms2)
     ; preprocess_term(Term, PreprocessedTerm),
       Terms = [PreprocessedTerm|Terms1],
-      read_all_terms(Stream, Terms1-Terms2) ).
-report_singletons(_, _, []) :- !.
-report_singletons(Term, Vars,
-                  Singletons) :-
-    Singletons = [Name=_ | RestSingletons],
+      read_all_terms(SourceFile, Stream, Terms1-Terms2) ).
+read_single_term(SourceFile, Stream, Term, NameVars, Singletons) :-
+    stream_property(Stream, position(StartPos)),
+    ( read_term(Stream, Term,
+                [variable_names(NameVars),
+                 singletons(Singletons)]) -> true
+    ; stream_position_data(line_count, StartPos, LineNo),
+      format(user_error, '[mlpi] ~a:~d: failed to read term~n',
+             [SourceFile, LineNo]) ).
+
+report_singletons(SourceFile, LineNo, Term, Vars, Singletons) :-
+    filter_singletons(Singletons, Singletons2-[]),
+    report_singletons_aux(SourceFile, LineNo, Term, Vars, Singletons2).
+report_singletons_aux(_, _, _, _, []) :- !.
+report_singletons_aux(SourceFile, LineNo, Term, Vars, Singletons) :-
+    term_string(Term, Str, [variable_names(Vars)]),
+    format(user_error, '[mlpi] ~a:~d: warning: Singletons ~w in ~w.~n',
+           [SourceFile, LineNo, Singletons, Str]).
+
+filter_singletons([], Singletons-Singletons2) :-
+    Singletons = Singletons2.
+filter_singletons([Name=_|Ss], Singletons-Singletons2) :-
     atom_chars(Name, SCs),
-    ( SCs = ['_'|_] -> true
-    ; term_string(Term, Str, [variable_names(Vars)]),
-      format(user_error, 'warning: Singleton ~w in ~s.~n',
-             [Name, Str]) ),
-    report_singletons(Term, Vars, RestSingletons).
+    ( SCs = ['_'|_]  -> filter_singletons(Ss, Singletons-Singletons2)
+    ; Singletons = [Name|Singletons1],
+      filter_singletons(Ss, Singletons1-Singletons2) ).
 % ----------------------------------------------------------------------
 % preprocessing for DCG
 % ----------------------------------------------------------------------
@@ -69,6 +87,7 @@ preprocess_term((Head --> Guard | Body), _) :-
 preprocess_term((Head --> Guard | Body), (Head2 :- Guard2 | Body2)) :-
     Pred = (Head --> Guard | Body),
     may_be_stream(Guard), !,
+    debug(mlpi, '~p: ~p', [preprocess_term/2, may_be_stream('Guard' = Guard)]),
     preprocess_stream(Pred, Guard, In1-In2, Guard2),
     Head =.. [F|Args], append(Args, [In1,In2], Args2),
     Head2 =.. [F|Args2],
@@ -76,6 +95,7 @@ preprocess_term((Head --> Guard | Body), (Head2 :- Guard2 | Body2)) :-
 preprocess_term((Head --> Guard | Body), (Head2 :- Guard2 | Body2)) :-
     Pred = (Head --> Guard | Body),
     may_be_stream(Body), !,
+    debug(mlpi, '~p: ~p', [preprocess_term/2, may_be_stream('Body' = Body)]),
     preprocess_stream(Pred, Body, Out1-Out2, Body2),
     Head =.. [F|Args], append(Args, [Out1,Out2], Args2),
     Head2 =.. [F|Args2],
@@ -83,6 +103,7 @@ preprocess_term((Head --> Guard | Body), (Head2 :- Guard2 | Body2)) :-
 preprocess_term((Head --> Body), (Head2 :- Body2)) :-
     Pred = (Head --> Body),
     may_be_stream(Body), !,
+    debug(mlpi, '~p: ~p', [preprocess_term/2, may_be_stream('Body' = Body)]),
     preprocess_stream(Pred, Body, Out1-Out2, Body2),
     Head =.. [F|Args], append(Args, [Out1,Out2], Args2),
     Head2 =.. [F|Args2].
@@ -211,12 +232,22 @@ mlpi_call(Head, debug(Topic)) :- !, call_(Head, debug(Topic)).
 mlpi_call(Head, debug(Topic, Format, Args)) :-
     !, call_(Head, debug(Topic, Format, Args)).
 mlpi_call(Head, nodebug(Topic)) :- !, call_(Head, nodebug(Topic)).
+mlpi_call(Head, open(F, M, S, Opt)) :- !, call_(Head, open(F, M, S, Opt)).
+mlpi_call(Head, close(S)) :- !, call_(Head, close(S)).
+mlpi_call(Head, stream_property(S, P)) :- !, call_(Head, stream_property(S, P)).
+mlpi_call(Head, stream_position_data(Type, Pos, Val)) :-
+    !, call_(Head, stream_position_data(Type, Pos, Val)).
+mlpi_call(Head, seek(A,B,C,D)) :- !, call_(Head, seek(A,B,C,D)).
+mlpi_call(Head, read_term(S, T, Opt)) :- !, call_(Head, read_term(S, T, Opt)).
+mlpi_call(Head, read_string(S, Len, Text)) :- !, call_(Head, read_string(S, Len, Text)).
 mlpi_call(Head, write(X)) :- !, call_(Head, write(X)).
 mlpi_call(Head, write(Stream, X)) :- !, call_(Head, write(Stream, X)).
 mlpi_call(Head, writeln(X)) :- !, call_(Head, writeln(X)).
 mlpi_call(Head, writeln(Stream, X)) :- !, call_(Head, writeln(Stream, X)).
 mlpi_call(Head, nl) :- !, call_(Head, nl).
 mlpi_call(Head, nl(Stream)) :- !, call_(Head, nl(Stream)).
+mlpi_call(Head, format(Stream, Format, Args)) :-
+    !, call_(Head, format(Stream, Format, Args)).
 mlpi_call(Head, prolog(P)) :- !, call_(Head, P).
 mlpi_call(Head, call(P)) :- !, call_(Head, mlpi_call(call(P), P)).
 mlpi_call(Head, freeze(X, P)) :-
@@ -241,12 +272,20 @@ mlpi_call(_, Goal) :-
       trust(Goal, GuardBody) ).
 call_(Head, DispGoal, RealGoal) :-
     functor(Head, Name, Arity),
-    ( call(RealGoal) -> debug(mlpi, '~p', [success(Name/Arity, guard, DispGoal)])
-    ; debug(mlpi, '~p', [fail(Name/Arity, guard, DispGoal)]), !, fail ).
+    ( call(RealGoal)
+    -> debug(mlpi, '~p: ~p',
+             [call_/3, success(Name/Arity, guard, DispGoal)])
+    ; debug(mlpi, '~p: ~p',
+            [call/3, fail(Name/Arity, guard, DispGoal)]),
+      !, fail ).
 call_(Head, Goal) :-
     functor(Head, Name, Arity),
-    ( call(Goal) -> debug(mlpi, '~p', [success(Name/Arity, guard, Goal)])
-    ; debug(mlpi, '~p', [fail(Name/Arity, guard, Goal)]), !, fail ).
+    ( call(Goal)
+    -> debug(mlpi, '~p: ~p',
+             [call_/2, success(Name/Arity, guard, Goal)])
+    ; debug(mlpi, '~p: ~p',
+            [call_2, fail(Name/Arity, guard, Goal)]),
+      !, fail ).
 trust(Head, (P, Q)) :- trust(Head, P), trust(Head, Q).
 trust(Head, (_ -> _)) :-
     functor(Head, Name, Arity),
@@ -263,6 +302,7 @@ trust(Head, !) :-
 trust(_, true).
 trust(Head, P) :-
     functor(Head, Name, Arity),
-    ( mlpi_call(Head, P) -> debug(mlpi, '~p', [success(Name/Arity, body, P)])
+    ( mlpi_call(Head, P) ->
+      debug(mlpi, '~p: ~p', [trust/2, success(Name/Arity, body, P)])
     ; throw(error(crash(Name/Arity, body, P),
                   context(Head, P))) ).

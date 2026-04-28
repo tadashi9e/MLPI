@@ -3,119 +3,189 @@
 % MLP -> Prolog Translator
 % ----------------------------------------------------------------------
 '$__translate__'(TermData, PTermData) :-
-    '$__preprocess_dcg__'(TermData, TermData1),
-    '$__translate_aux__'(TermData1, PTermData).
+    '$__preprocess_chr__'(TermData, TermData2),
+    '$__preprocess_dcg__'(TermData2, TermData3),
+    '$__translate_aux__'(TermData3, PTermData).
 
 '$__translate_aux__'([], []).
 '$__translate_aux__'(
-    [term_data((Head :- Guard | Body), NameVars)|Terms],
-    [term_data((Head :- CompiledGuard, !, TrustedBody), NameVars)|Terms2]) :-
-    '$__call_guards__'(Head, Guard, CompiledGuard),
-    '$__call_goals__'(Head, Body, TrustedBody),
+    [term_data([],
+               NameVars, Text, FileName, LineNo) | Terms],
+    [term_data([],
+               NameVars, Text, FileName, LineNo) | Terms2]) :-
     '$__translate_aux__'(Terms, Terms2).
 '$__translate_aux__'(
-    [term_data((Head :- Body), NameVars)|Terms],
-    [term_data((Head :- !, TrustedBody), NameVars)|Terms2]) :-
-    '$__call_goals__'(Head, Body, TrustedBody),
+    [term_data((Head :- Guard | Body),
+               NameVars, Text, FileName, LineNo) | Terms],
+    [term_data((Head :- CompiledGuard, !, TrustedBody),
+               NameVars, Text, FileName, LineNo) | Terms2]) :-
+    debug(translate, '[runtime] ~w: ~p: ~p',
+          [FileName:LineNo, translate/2,
+           '$__call_guards__'(
+               FileName:LineNo, Head, Guard, CompiledGuard)]),
+    '$__call_guards__'(FileName:LineNo, Head, Guard, CompiledGuard),
+    debug(translate, '[runtime] ~w: ~p: ~p',
+          [FileName:LineNo, translate/2,
+           '$__call_goals__'(
+               FileName:LineNo, Head, Body, TrustedBody)]),
+    '$__call_goals__'(FileName:LineNo, Head, Body, TrustedBody),
     '$__translate_aux__'(Terms, Terms2).
 '$__translate_aux__'(
-    [term_data(Head, NameVars)|Terms],
-    [term_data((Head :- !), NameVars)|Terms2]) :-
+    [term_data((Head :- Body),
+               NameVars, Text, FileName, LineNo) | Terms],
+    [term_data((Head :- !, TrustedBody),
+               NameVars, Text, FileName, LineNo) | Terms2]) :-
+    debug(translate, '[runtime] ~w: ~p: ~p',
+          [FileName:LineNo, translate/2,
+           '$__call_goals__'(
+               FileName:LineNo, Head, Body, TrustedBody)]),
+    '$__call_goals__'(FileName:LineNo, Head, Body, TrustedBody),
+    '$__translate_aux__'(Terms, Terms2).
+'$__translate_aux__'(
+    [term_data((:- X),
+               NameVars, Text, FileName, LineNo) | Terms],
+    [term_data((:- X),
+               NameVars, Text, FileName, LineNo) | Terms2]) :-
+    debug(translate, '[runtime] ~w: ~p: ~p',
+          [FileName:LineNo, translate/2, (:- X)]),
+    '$__translate_aux__'(Terms, Terms2).
+'$__translate_aux__'(
+    [term_data(Head,
+               NameVars, Text, FileName, LineNo) | Terms],
+    [term_data((Head :- !),
+               NameVars, Text, FileName, LineNo) | Terms2]) :-
+    debug(translate, '[runtime] ~w: ~p: ~p',
+          [FileName:LineNo, translate/2, Head]),
+    '$__translate_aux__'(Terms, Terms2).
+otherwise.
+'$__translate_aux__'(
+    [term_data(Term,
+               NameVars, Text, FileName, LineNo) | Terms],
+    [term_data([],
+               NameVars, Text, FileName, LineNo) | Terms2]) :-
+    debug(translate, '~w: ~p: ~p', [FileName:LineNo, translate/2, Term]),
     '$__translate_aux__'(Terms, Terms2).
 
-'$__call_guards__'(Head, (G1, G2), (P1, P2)) :-
-    '$__call_guards__'(Head, G1, P1),
-    '$__call_guards__'(Head, G2, P2).
-'$__call_guards__'(_, (G1 -> G2), (P1 -> P2)) :-
-    '$__call_guards__'(_, G1, P1),
-    '$__call_guards__'(_, G2, P2).
-'$__call_guards__'(Head, (G1 ; G2), (P1 ; P2)) :-
-    '$__call_guards__'(Head, G1, P1),
-    '$__call_guards__'(Head, G2, P2).
-'$__call_guards__'(_, true, P) :- P = true.
-'$__call_guards__'(_, !, P) :- P = !.
-'$__call_guards__'(_, var(X), P) :- P = var(X).
-'$__call_guards__'(_, nonvar(X), P) :- P = nonvar(X).
-'$__call_guards__'(_, integer(X), P) :- P = integer(X).
-'$__call_guards__'(_, A is B, P) :- P = (A is B).
-'$__call_guards__'(_, A := B, P) :- P = (A is B).
-'$__call_guards__'(_, A = B, P) :- P = (A = B).
-'$__call_guards__'(_, A =\= B, P) :- P = (A =\= B).
-'$__call_guards__'(_, A =:= B, P) :- P = (A =:= B).
-'$__call_guards__'(_, A < B, P) :- P = (A < B).
-'$__call_guards__'(_, A > B, P) :- P = (A > B).
-'$__call_guards__'(_, A =< B, P) :- P = (A =< B).
-'$__call_guards__'(_, A >= B, P) :- P = (A >= B).
-'$__call_guards__'(_, F =.. L, P) :- P = (F =.. L).
-'$__call_guards__'(_, prolog(G), P) :- P = G.
-'$__call_guards__'(_, call(G), P) :- P = '$__call__'(G).
-'$__call_guards__'(_, freeze(X, G), P) :- P = '$__freeze__'(X, G).
-'$__call_guards__'(_, catch(G, Error, Recover), P) :-
-    P = '$__catch__'(G, Error, Recover).
-'$__call_guards__'(_, abolish(Func, Arity), P) :- P = '$__abolish__'(Func, Arity).
-'$__call_guards__'(_, asserta(Term), P) :- P = '$__asserta__'(Term).
-'$__call_guards__'(_, assertz(Term), P) :- P = '$__assertz__'(Term).
-'$__call_guards__'(_, G, P) :- P = G.
+'$__call_guards__'(Position, Head, (G1, G2), (P1, P2)) :-
+    '$__call_guards__'(Position, Head, G1, P1),
+    '$__call_guards__'(Position, Head, G2, P2).
+'$__call_guards__'(Position, Head, (G1 -> G2), (P1 -> P2)) :-
+    '$__call_guards__'(Position, Head, G1, P1),
+    '$__call_guards__'(Position, Head, G2, P2).
+'$__call_guards__'(Position, Head, (G1 ; G2), (P1 ; P2)) :-
+    '$__call_guards__'(Position, Head, G1, P1),
+    '$__call_guards__'(Position, Head, G2, P2).
+'$__call_guards__'(_, _, true, P) :- P = true.
+'$__call_guards__'(_, _, !, P) :- P = !.
+'$__call_guards__'(_, _, var(X), P) :- P = var(X).
+'$__call_guards__'(_, _, nonvar(X), P) :- P = nonvar(X).
+'$__call_guards__'(_, _, integer(X), P) :- P = integer(X).
+'$__call_guards__'(_, _, A is B, P) :- P = (A is B).
+'$__call_guards__'(_, _, A := B, P) :- P = (A is B).
+'$__call_guards__'(_, _, A = B, P) :- P = (A = B).
+'$__call_guards__'(_, _, A =\= B, P) :- P = (A =\= B).
+'$__call_guards__'(_, _, A =:= B, P) :- P = (A =:= B).
+'$__call_guards__'(_, _, A < B, P) :- P = (A < B).
+'$__call_guards__'(_, _, A > B, P) :- P = (A > B).
+'$__call_guards__'(_, _, A =< B, P) :- P = (A =< B).
+'$__call_guards__'(_, _, A >= B, P) :- P = (A >= B).
+'$__call_guards__'(_, _, F =.. L, P) :- P = (F =.. L).
+'$__call_guards__'(_, _, prolog(G), P) :- P = G.
+'$__call_guards__'(Position, _, call(G), P) :-
+    P = '$__call__'(Position, G).
+'$__call_guards__'(Position, _, freeze(X, G), P) :-
+    P = '$__freeze__'(Position, X, G).
+'$__call_guards__'(Position, _, catch(G, Error, Recover), P) :-
+    P = '$__catch__'(Position, G, Error, Recover).
+'$__call_guards__'(Position, _, abolish(Func, Arity), P) :-
+    P = '$__abolish__'(Position, Func, Arity).
+'$__call_guards__'(Position, _, asserta(Term), P) :-
+    P = '$__asserta__'(Position, Term).
+'$__call_guards__'(Position, _, assertz(Term), P) :-
+    P = '$__assertz__'(Position, Term).
+'$__call_guards__'(_, _, G, P) :- P = G.
 
-'$__call_goals__'(Head, (P, Q), (P2, !, Q2)) :-
-    '$__call_goals__'(Head, P, P2),
-    '$__call_goals__'(Head, Q, Q2).
-'$__call_goals__'(Head, (_ -> _), _) :-
+'$__call_goals__'(Position, Head, (P, Q), (P2, !, Q2)) :-
+    '$__call_goals__'(Position, Head, P, P2),
+    '$__call_goals__'(Position, Head, Q, Q2).
+'$__call_goals__'(Position, Head, (_ -> _), _) :-
     functor(Head, Name, Arity),
     prolog(throw(error(crash(Name/Arity, compile, '"->" not allowed in body'),
-                       context(Head)))).
-'$__call_goals__'(Head, (_ ; _), _) :-
+                       context(Position, Head)))).
+'$__call_goals__'(Position, Head, (_ ; _), _) :-
     functor(Head, Name, Arity),
     prolog(throw(error(crash(Name/Arity, compile, '";" not allowed in body'),
-                       context(Head)))).
-'$__call_goals__'(Head, !, _) :-
+                       context(Position, Head)))).
+'$__call_goals__'(Position, Head, !, _) :-
     functor(Head, Name, Arity),
     prolog(throw(error(crash(Name/Arity, compile, '"!" not allowed in body'),
-                       context(Head)))).
-'$__call_goals__'(_, true, true).
-'$__call_goals__'(_, A is B, P) :- P = (A is B).
-'$__call_goals__'(_, A := B, P) :- P = (A is B).
-'$__call_goals__'(_, A = B, P) :- P = (A = B).
-'$__call_goals__'(_, F =.. L, P) :- P = (F =.. L).
-'$__call_goals__'(_, prolog(Q), P) :- P = Q.
-'$__call_goals__'(_, call(G), P) :- P = '$__call__'(G).
-'$__call_goals__'(_, freeze(X, G), P) :- P = '$__freeze__'(X, G).
-'$__call_goals__'(_, catch(G, Error, Recover), P) :-
-    P = '$__catch__'(G, Error, Recover).
-'$__call_goals__'(_, abolish(Func, Arity), P) :-
-    P = '$__abolish__'(Func, Arity).
-'$__call_goals__'(_, asserta(Term), P) :- P = '$__asserta__'(Term).
-'$__call_goals__'(_, assertz(Term), P) :- P = '$__assertz__'(Term).
-'$__call_goals__'(_, G, P) :- P = G.
+                       context(Position, Head)))).
+'$__call_goals__'(_, _, true, true).
+'$__call_goals__'(_, _, A is B, P) :- P = (A is B).
+'$__call_goals__'(_, _, A := B, P) :- P = (A is B).
+'$__call_goals__'(_, _, A = B, P) :- P = (A = B).
+'$__call_goals__'(_, _, F =.. L, P) :- P = (F =.. L).
+'$__call_goals__'(_, _, prolog(Q), P) :- P = Q.
+'$__call_goals__'(Position, _, call(G), P) :-
+    P = '$__call__'(Position, G).
+'$__call_goals__'(Position, _, freeze(X, G), P) :-
+    P = '$__freeze__'(Position, X, G).
+'$__call_goals__'(Position, _, catch(G, Error, Recover), P) :-
+    P = '$__catch__'(Position, G, Error, Recover).
+'$__call_goals__'(Position, _, abolish(Func, Arity), P) :-
+    P = '$__abolish__'(Position, Func, Arity).
+'$__call_goals__'(Position, _, asserta(Term), P) :-
+    P = '$__asserta__'(Position, Term).
+'$__call_goals__'(Position, _, assertz(Term), P) :-
+    P = '$__assertz__'(Position, Term).
+'$__call_goals__'(_, _, G, P) :- P = G.
 
-'$__rename__'(call(G), G2) :- '$__call_goals__'(call(G), G, G2).
-'$__rename__'(freeze(X, Target), G2) :-
-    '$__call_goals__'(freeze(Target), Target, Target2),
+'$__rename__'(Position, call(G), G2) :-
+    '$__call_goals__'(Position, call(G), G, G2).
+'$__rename__'(Position, freeze(X, Target), G2) :-
+    '$__call_goals__'(Position, freeze(Target), Target, Target2),
     G2 = freeze(X, Target2).
-'$__rename__'(catch(Target, Error, Recover), G2) :-
-    '$__call_goals__'(freeze(Target), Target, Target2),
-    '$__call_goals__'(freeze(Recover), Target, Recover2),
+'$__rename__'(Position, catch(Target, Error, Recover), G2) :-
+    '$__call_goals__'(Position, freeze(Target), Target, Target2),
+    '$__call_goals__'(Position, freeze(Recover), Target, Recover2),
     G2 = catch(Target2, Error, Recover2).
-'$__rename__'(prolog(G), G2) :- G2 = G.
+'$__rename__'(_, prolog(G), G2) :- G2 = G.
 otherwise.
-'$__rename__'(G, G).
+'$__rename__'(_, G, G).
 
-'$__call__'(G) :-
-    '$__rename__'(G, G2),
+'$__call__'(Position, G) :-
+    '$__rename__'(Position, G, G2),
+    debug(translate, '[runtime] ~w: ~p: ~p',
+          [Position, call/1, call(G2)]),
     prolog(call(G2)).
-'$__freeze__'(X, G) :-
+'$__freeze__'(Position, X, G) :-
+    debug(translate, '[runtime] ~w: ~p: ~p',
+          [Position, freeze/1, freeze(X, G)]),
     prolog(freeze(X,
-                  ('$__rename__'(G, G2), '$__call__'(G2)))).
-'$__catch__'(G, Error, Recover) :-
+                  ('$__rename__'(Position, G, G2),
+                   '$__call__'(Position, G2)))).
+'$__catch__'(Position, G, Error, Recover) :-
+    debug(translate, '[runtime] ~w: ~p: ~p',
+          [Position, catch/1, catch(G, Error, Recover)]),
     prolog(catch(
-               ('$__rename__'(G, G2), '$__call__'(G2)),
+               ('$__rename__'(Position, G, G2),
+                '$__call__'(Position, G2)),
                Error,
-               ('$__rename__'(Recover, Recover2), '$__call__'(Recover2)))).
-'$__abolish__'(Name, Arity) :-
+               ('$__rename__'(Position, Recover, Recover2),
+                '$__call__'(Position, Recover2)))).
+'$__abolish__'(Position, Name, Arity) :-
+    debug(translate,
+          '[runtime] ~w: ~p: ~p', [Position, abolish/1, Name/Arity]),
     prolog(abolish(Name, Arity)).
-'$__asserta__'(Term) :-
-    '$__translate__'([term_data(Term, [])], [term_data(Term2, _)]),
+'$__asserta__'(FileName:LineNo, Term) :-
+    '$__translate__'([term_data(Term, [], Text, FileName, LineNo)],
+                     [term_data(Term2, _, Text, FileName, LineNo)]),
+    debug(translate,
+          '[runtime] ~w: ~p: ~p', [FileName:LineNo, asserta/1, Term2]),
     prolog(asserta(Term2)).
-'$__assertz__'(Term) :-
-    '$__translate__'([term_data(Term, [])], [term_data(Term2, _)]),
+'$__assertz__'(FileName:LineNo, Term) :-
+    '$__translate__'([term_data(Term, [], Text, FileName, LineNo)],
+                     [term_data(Term2, _, Text, FileName, LineNo)]),
+    debug(translate, '[runtime] ~w: ~p: ~p',
+          [FileName:LineNo, assertz/1, Term2]),
     prolog(assertz(Term2)).

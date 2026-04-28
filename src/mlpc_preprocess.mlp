@@ -1,34 +1,76 @@
 % -*- mode: prolog; coding:utf-8 -*-
+
+% ----------------------------------------------------------------------
+% preprocessing for CHR
+% ----------------------------------------------------------------------
+'$__preprocess_chr__'([], []).
+'$__preprocess_chr__'(
+    [term_data(Term,
+               NameVars, Text, FileName, LineNo)|Terms],
+    [term_data(PreProcessedTerm,
+               NameVars, Text, FileName, LineNo)|Terms2]) :-
+    '$__preprocess_chr_term__'(Term, PreProcessedTerm),
+    debug(preprocess, '~p: ~p',
+          ['$__preprocess_chr__'/2,
+           '$__preprocess_chr_term__'(Term, PreProcessedTerm)]),
+    '$__preprocess_chr__'(Terms, Terms2).
+
+'$__preprocess_chr_term__'((_ ==> _), []).
+'$__preprocess_chr_term__'((_ @ _ ==> _), []).
+'$__preprocess_chr_term__'((_ <=> _), []).
+'$__preprocess_chr_term__'((_ @ _ <=> _), []).
+otherwise.
+'$__preprocess_chr_term__'(Term, Term).
+
 % ----------------------------------------------------------------------
 % preprocessing for DCG
 % ----------------------------------------------------------------------
 '$__preprocess_dcg__'([], []).
-'$__preprocess_dcg__'([term_data(Term, NameVars)|Terms],
-           [term_data(PreProcessedTerm, NameVars)|Terms2]) :-
+'$__preprocess_dcg__'(
+    [term_data(Term,
+               NameVars, Text, FileName, LineNo)|Terms],
+    [term_data(PreProcessedTerm,
+               NameVars, Text, FileName, LineNo)|Terms2]) :-
     '$__preprocess_dcg_term__'(Term, PreProcessedTerm),
     '$__preprocess_dcg__'(Terms, Terms2).
 '$__preprocess_dcg_term__'((Head --> Guard | Body), _) :-
     Pred = (Head --> Guard | Body),
     '$__may_be_stream__'(Guard), '$__may_be_stream__'(Body) |
+    debug(preprocess, '~p: ~p', [preprocess_term/2, may_be_stream('Guard' = Guard)]),
     throw(error(invalid_predicate(Pred))).
-'$__preprocess_dcg_term__'((Head --> Guard | Body), (Head2 :- Guard2 | Body2)) :-
+'$__preprocess_dcg_term__'((Head --> Guard | Body),
+                           (Head2 :- Guard2 | Body2)) :-
     Pred = (Head --> Guard | Body),
     '$__may_be_stream__'(Guard) |
     '$__preprocess_dcg_stream__'(Pred, Guard, In1-In2, Guard2),
+    debug(preprocess, '~p: ~p',
+          [preprocess_term/2,
+           '$__preprocess_dcg_term__'((Head --> Guard | Body),
+                                      (Head2 :- Guard2 | Body2))]),
     Head =.. [F|Args], append(Args, [In1,In2], Args2),
     Head2 =.. [F|Args2],
     Body2 = Body.
-'$__preprocess_dcg_term__'((Head --> Guard | Body), (Head2 :- Guard2 | Body2)) :-
+'$__preprocess_dcg_term__'((Head --> Guard | Body),
+                           (Head2 :- Guard2 | Body2)) :-
     Pred = (Head --> Guard | Body),
     '$__may_be_stream__'(Body) |
     '$__preprocess_dcg_stream__'(Pred, Body, Out1-Out2, Body2),
     Head =.. [F|Args], append(Args, [Out1,Out2], Args2),
+    debug(preprocess, '~p: ~p',
+          [preprocess_term/2,
+           '$__preprocess_dcg_term__'((Head --> Guard | Body),
+                                      (Head2 :- Guard2 | Body2))]),
     Head2 =.. [F|Args2],
     Guard2 = Guard.
-'$__preprocess_dcg_term__'((Head --> Body), (Head2 :- Body2)) :-
+'$__preprocess_dcg_term__'((Head --> Body),
+                           (Head2 :- Body2)) :-
     Pred = (Head --> Body),
     '$__may_be_stream__'(Body) |
     '$__preprocess_dcg_stream__'(Pred, Body, Out1-Out2, Body2),
+    debug(preprocess, '~p: ~p',
+          [preprocess_term/2,
+           '$__preprocess_dcg_term__'((Head --> Body),
+                                      (Head2 :- Body2))]),
     Head =.. [F|Args], append(Args, [Out1,Out2], Args2),
     Head2 =.. [F|Args2].
 otherwise.

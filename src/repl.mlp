@@ -36,7 +36,9 @@ repl_print([NV|Vars], IO-IO2) :-
 % ----------------------------------------------------------------------
 consult(File) :-
     iostream(FileIO),
+    debug(repl, '[repl] ~p: ~p', [consult/1, open(File)]),
     FileIO = [open(File, read, Stream, [encoding(utf8)]) | FileIO2],
+    debug(repl, '[repl] ~p: ~p', [read_all_terms/3, read_all_terms(Stream)]),
     read_all_terms(Stream, Terms-[], FileIO2-FileIO3),
     abolish_all_terms(Terms) |
     assert_all_terms(Terms),
@@ -53,8 +55,7 @@ read_all_terms_aux(end_of_file, _, Terms-Terms2, FileIO-FileIO2) :-
 read_all_terms_aux(otherwise, Stream, Terms-Terms2, FileIO-FileIO2) :-
     read_all_terms(Stream, Terms-Terms2, FileIO-FileIO2).
 read_all_terms_aux(Term, Stream, Terms-Terms2, FileIO-FileIO2) :-
-    preprocess_dcg_term(Term, PreprocessedTerm),
-    Terms = [PreprocessedTerm|Terms1],
+    Terms = [Term|Terms1],
     read_all_terms(Stream, Terms1-Terms2, FileIO-FileIO2).
 % ----------------------------------------------------------------------
 report_singletons(_, _, []).
@@ -78,10 +79,13 @@ abolish_all_terms([Term|Terms]) :-
     abolish_all_terms(Terms).
 abolish_all_terms([Term|Terms]) :-
     Term = Head, functor(Head, Func, Arity),
+    debug(repl, '[repl] ~p: ~p', [abolish_all_terms/1, abolish(Func, Arity)]),
     abolish(Func, Arity) |
     abolish_all_terms(Terms).
 otherwise.  % ignore error
 abolish_all_terms([_|Terms]) :- abolish_all_terms(Terms).
 
 assert_all_terms([]).
-assert_all_terms([Term|Terms]) :- assertz(Term), assert_all_terms(Terms).
+assert_all_terms([Term|Terms]) :-
+    debug(repl, '[repl] ~p: ~p', [assert_all_terms/1, assertz(Term)]),
+    assertz(Term), assert_all_terms(Terms).
