@@ -45,14 +45,21 @@ write_term_data([A|B],C):-A=term_data(D,E,_,_,_),!,debug(translate,'~p: ~p',[wri
 | F
 ],!,write_term_data(B,F).
 load_term_data([],A-A) :- !.
-load_term_data([A|B],C-D):-!,open(A,read,E,[encoding(utf8)]),!,read_all_terms(A,E,C-F),!,close(E),!,load_term_data(B,F-D).
-read_all_terms(A,B,C-D):-!,stream_property(B,position(E)),!,read_single_term(A,B,E,F,G,H),!,stream_property(B,position(I)),!,read_source_span(B,E,I,J),!,stream_position_data(line_count,E,K),!,report_singletons(A,K,J,H),!,read_all_terms_aux(F,G,J,A,K,B,C-D).
-read_single_term(_,A,_,B,C,D):-read_term(A,B,[variable_names(C),singletons(D),syntax_errors(dec10)]),!,true.
-read_single_term(A,_,B,_,_,_):-!,stream_position_data(line_count,B,C),!,format(user_error,'[mlpc] ~a:~d: failed to read term~n',[A,C]).
+load_term_data([A|B],C-D):-!,open(A,read,E,[encoding(utf8)]),!,read_all_terms(A,E,C-F,0),!,close(E),!,load_term_data(B,F-D).
+read_all_terms(A,B,C-D,E):-!,stream_property(B,position(F)),!,read_single_term(A,E,B,G,H,I),!,stream_property(B,position(J)),!,read_source_span(B,F,J,K),!,report_singletons(A,E,K,I),!,read_all_terms_aux(G,H,K,A,E,B,C-D).
+read_single_term(_,_,A,B,C,D):-read_term(A,B,[variable_names(C),singletons(D),syntax_errors(dec10)]),!,true.
+read_single_term(A,B,_,_,_,_):-!,format(user_error,'[mlpc] ~a:~d: failed to read term~n',[A,B]).
 read_all_terms_aux(A,_,_,_,_,_,B-C) :- A=end_of_file,!,B=C.
-read_all_terms_aux(A,_,_,B,_,C,D-E):-A=otherwise,!,read_all_terms(B,C,D-E).
-read_all_terms_aux(A,B,C,D,E,F,G-H):-!,G=[term_data(A,B,C,D,E)|I],!,read_all_terms(D,F,I-H).
+read_all_terms_aux(A,_,_,B,_,C,D-E):-A=otherwise,!,count_newlines(C,F),!,read_all_terms(B,C,D-E,F).
+read_all_terms_aux(A,B,C,D,E,F,G-H):-!,G=[term_data(A,B,C,D,E)|I],!,count_newlines(F,J),!,read_all_terms(D,F,I-H,J).
 read_source_span(A,B,C,D):-!,stream_position_data(char_count,B,E),!,stream_position_data(char_count,C,F),!,G is F-E,!,seek(A,E,bof,_),!,read_string(A,G,D).
+read_source_from_begin_to_current(A,B):-!,stream_property(A,position(C)),!,stream_position_data(char_count,C,D),!,seek(A,0,bof,_),!,read_string(A,D,B).
+count_newlines(A,B):-!,read_source_from_begin_to_current(A,C),!,string_codes(C,D),!,count_newlines_aux(D,2,B).
+count_newlines_aux([],A,A) :- !.
+count_newlines_aux([10|A],B,C) :- !,D is B+1,!,count_newlines_aux(A,D,C).
+count_newlines_aux([13,10|A],B,C):-!,D is B+1,!,count_newlines_aux(A,D,C).
+count_newlines_aux([13|A],B,C) :- !,D is B+1,!,count_newlines_aux(A,D,C).
+count_newlines_aux([_|A],B,C) :- !,count_newlines_aux(A,B,C).
 report_singletons(A,B,C,D):-!,filter_singletons(D,E-[]),!,report_singletons_aux(A,B,E,C).
 report_singletons_aux(_,_,[],_) :- !.
 report_singletons_aux(A,B,C,D):-!,format(user_error,
@@ -63,8 +70,8 @@ filter_singletons([A=_|B],C-D):-(atom_chars(A,E),E=['_'|_]),!,filter_singletons(
 filter_singletons([A=_|B],C-D) :- !,C=[A|E],!,filter_singletons(B,E-D).
 A:=B :- !,A is B.
 iostream(A) :- !,A=[_|_],!,iostream_loop(A).
-iostream_loop(A):-var(A),!,'$__freeze__'('builtin.mlp':11,A,iostream_loop(A)).
-iostream_loop([A|B]):-var(A),!,'$__freeze__'('builtin.mlp':15,A,iostream_loop([A|B])).
+iostream_loop(A):-var(A),!,'$__freeze__'('builtin.mlp':7,A,iostream_loop(A)).
+iostream_loop([A|B]):-var(A),!,'$__freeze__'('builtin.mlp':9,A,iostream_loop([A|B])).
 iostream_loop([]) :- !.
 iostream_loop([told]) :- !.
 iostream_loop([write(A)|B]) :- !,write(A),!,iostream_loop(B).

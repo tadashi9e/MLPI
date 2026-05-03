@@ -105,40 +105,40 @@ write_term_data([TD | Terms], IO) :-
 load_term_data([], Terms-Terms).
 load_term_data([SourceFile|SourceFiles], Terms-Terms2) :-
     open(SourceFile, read, Stream, [encoding(utf8)]),
-    read_all_terms(SourceFile, Stream, Terms-Terms1),
+    read_all_terms(SourceFile, Stream, Terms-Terms1, 0),
     close(Stream),
     load_term_data(SourceFiles, Terms1-Terms2).
-read_all_terms(SourceFile, Stream, Terms-Terms2) :-
+read_all_terms(SourceFile, Stream, Terms-Terms2, LineNo) :-
     stream_property(Stream, position(StartPos)),
-    read_single_term(SourceFile, Stream, StartPos,
+    read_single_term(SourceFile, LineNo, Stream,
                      Term, NameVars, Singletons),
     stream_property(Stream, position(EndPos)),
     read_source_span(Stream, StartPos, EndPos, Text),
-    stream_position_data(line_count, StartPos, LineNo),
     report_singletons(SourceFile, LineNo, Text, Singletons),
     read_all_terms_aux(Term, NameVars, Text, SourceFile, LineNo,
                        Stream, Terms-Terms2).
 
-read_single_term(_, Stream, _, Term, NameVars, Singletons) :-
+read_single_term(_, _, Stream, Term, NameVars, Singletons) :-
     read_term(Stream, Term,
               [variable_names(NameVars),
                singletons(Singletons),
                syntax_errors(dec10)]) | true.
 otherwise.
-read_single_term(SourceFile, _, StartPos,
-                 _, _, _) :-
-    stream_position_data(line_count, StartPos, LineNo),
+read_single_term(SourceFile, LineNo, _, _, _, _) :-
     format(user_error, '[mlpc] ~a:~d: failed to read term~n',
            [SourceFile, LineNo]).
 
 read_all_terms_aux(Term, _, _, _, _, _, Terms-Terms2) :-
     Term = end_of_file | Terms = Terms2.
 read_all_terms_aux(Term, _, _, SourceFile, _, Stream, Terms-Terms2) :-
-    Term = otherwise | read_all_terms(SourceFile, Stream, Terms-Terms2).
+    Term = otherwise |
+    count_newlines(Stream, LineNo2),
+    read_all_terms(SourceFile, Stream, Terms-Terms2, LineNo2).
 read_all_terms_aux(Term, NameVars, Text, SourceFile, LineNo,
                    Stream, Terms-Terms2) :-
     Terms = [term_data(Term, NameVars, Text, SourceFile, LineNo)|Terms1],
-    read_all_terms(SourceFile, Stream, Terms1-Terms2).
+    count_newlines(Stream, LineNo2),
+    read_all_terms(SourceFile, Stream, Terms1-Terms2, LineNo2).
 
 read_source_span(Stream, Start, End, Text) :-
     stream_position_data(char_count, Start, S),
@@ -146,6 +146,25 @@ read_source_span(Stream, Start, End, Text) :-
     Len is E - S,
     seek(Stream, S, bof, _),
     read_string(Stream, Len, Text).
+
+read_source_from_begin_to_current(Stream, Text) :-
+    stream_property(Stream, position(EndPos)),
+    stream_position_data(char_count, EndPos, Length),
+    seek(Stream, 0, bof, _),
+    read_string(Stream, Length, Text).
+count_newlines(Stream, NumLines) :-
+    read_source_from_begin_to_current(Stream, Text),
+    prolog(string_codes(Text, Codes)),
+    count_newlines_aux(Codes, 2, NumLines).
+count_newlines_aux([], Num, Num).
+count_newlines_aux([10|Rest], Num, NumLines) :-
+    Num1 is Num + 1, count_newlines_aux(Rest, Num1, NumLines).
+count_newlines_aux([13,10|Rest], Num, NumLines) :-
+    Num1 is Num + 1, count_newlines_aux(Rest, Num1, NumLines).
+count_newlines_aux([13|Rest], Num, NumLines) :-
+    Num1 is Num + 1, count_newlines_aux(Rest, Num1, NumLines).
+count_newlines_aux([_|Rest], Num, NumLines) :-
+    count_newlines_aux(Rest, Num, NumLines).
 
 report_singletons(SourceFile, LineNo, Text, Singletons) :-
     filter_singletons(Singletons, Singletons2-[]),

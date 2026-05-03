@@ -1,6 +1,8 @@
 #!/usr/bin/env swipl
 % -*- mode: prolog; coding:utf-8 -*-
+
 :- initialization(main, main).
+
 :- use_module(library(chr)).
 
 main(Argv) :-
@@ -13,9 +15,9 @@ main(Argv) :-
     debug(main, '~p: ~p', [main/1, 'SourceFiles' = SourceFiles]),
     debug(main, '~p: ~p', [main/1, 'Args' = Args]),
     debug(main, '~p: ~p', [main/1, load_terms(SourceFiles)]),
-    load_terms(SourceFiles, Terms-[]), !,
+    load_terms(SourceFiles, TDList-[]), !,
     debug(main, '~p: ~p', [main/1, mlpi(Args)]),
-    mlpi(Terms, ['mlpi.pl'|Args]).
+    mlpi(TDList, ['mlpi.pl'|Args]).
 
 writeall([]).
 writeall([T|Ts]) :- writeln(T), writeall(Ts).
@@ -35,40 +37,68 @@ parse_args([], [], []) :- !.
 % ----------------------------------------------------------------------
 % load source files
 % ----------------------------------------------------------------------
-load_terms([], Terms-Terms) :- !.
-load_terms([SourceFile|SourceFiles], Terms-Terms2) :-
+load_terms([], TDList-TDList) :- !.
+load_terms([SourceFile|SourceFiles], TDList-TDList2) :-
     open(SourceFile, read, Stream, [encoding(utf8)]),
-    read_all_terms(SourceFile, Stream, Terms-Terms1),
+    read_all_terms(SourceFile, Stream, TDList-TDList1, 0),
     close(Stream),
-    load_terms(SourceFiles, Terms1-Terms2).
-read_all_terms(SourceFile, Stream, Terms-Terms2) :-
+    load_terms(SourceFiles, TDList1-TDList2).
+read_all_terms(SourceFile, Stream, TDList-TDList2, LineNo) :-
     stream_property(Stream, position(StartPos)),
-    read_single_term(SourceFile, Stream, Term, NameVars, Singletons),
-    debug(main, '~p: ~p', [read_all_terms/2, read_term(Term)]),
-    stream_position_data(line_count, StartPos, LineNo),
-    report_singletons(SourceFile, LineNo, Term, NameVars, Singletons),
-    ( Term = end_of_file -> Terms = Terms2
-    ; Term = otherwise -> read_all_terms(SourceFile, Stream, Terms-Terms2)
-    ; preprocess_term(Term, PreprocessedTerm),
-      Terms = [PreprocessedTerm|Terms1],
-      read_all_terms(SourceFile, Stream, Terms1-Terms2) ).
-read_single_term(SourceFile, Stream, Term, NameVars, Singletons) :-
-    stream_property(Stream, position(StartPos)),
+    read_single_term(SourceFile, Stream, Term, NameVars, Singletons, LineNo),
+    stream_property(Stream, position(EndPos)),
+    read_source_span(Stream, StartPos, EndPos, Text),
+    debug(main, '~p: ~p', [read_all_terms/4, read_term(TermData)]),
+    report_singletons(SourceFile, LineNo, Text, Singletons),
+    ( Term = end_of_file -> TDList = TDList2
+    ; Term = otherwise ->
+      count_newlines(Stream, LineNo2),
+      read_all_terms(SourceFile, Stream, TDList-TDList2, LineNo2)
+    ; TermData = term_data(Term, NameVars, Text, SourceFile, LineNo),
+      preprocess_term(TermData, PreprocessedTermData),
+      TDList = [PreprocessedTermData|TDList1],
+      count_newlines(Stream, LineNo2),
+      read_all_terms(SourceFile, Stream, TDList1-TDList2, LineNo2) ).
+read_single_term(SourceFile, Stream, Term, NameVars, Singletons, LineNo) :-
     ( read_term(Stream, Term,
                 [variable_names(NameVars),
                  singletons(Singletons)]) -> true
-    ; stream_position_data(line_count, StartPos, LineNo),
-      format(user_error, '[mlpi] ~a:~d: failed to read term~n',
+    ; format(user_error, '[mlpi] ~a:~d: failed to read term~n',
              [SourceFile, LineNo]) ).
 
-report_singletons(SourceFile, LineNo, Term, Vars, Singletons) :-
+read_source_span(Stream, StartPos, EndPos, Source) :-
+    stream_position_data(char_count, StartPos, StartChar),
+    stream_position_data(char_count, EndPos, EndChar),
+    Length is EndChar - StartChar,
+    seek(Stream, StartChar, bof, _),
+    read_string(Stream, Length, Source).
+
+read_source_from_begin_to_current(Stream, Text) :-
+    stream_property(Stream, position(EndPos)),
+    stream_position_data(char_count, EndPos, Length),
+    seek(Stream, 0, bof, _),
+    read_string(Stream, Length, Text).
+count_newlines(Stream, NumLines) :-
+    read_source_from_begin_to_current(Stream, Text),
+    string_codes(Text, Codes),
+    count_newlines_aux(Codes, 2, NumLines).
+count_newlines_aux([], Num, Num).
+count_newlines_aux([10|Rest], Num, NumLines) :-
+    !, Num1 is Num + 1, count_newlines_aux(Rest, Num1, NumLines).
+count_newlines_aux([13,10|Rest], Num, NumLines) :-
+    !, Num1 is Num + 1, count_newlines_aux(Rest, Num1, NumLines).
+count_newlines_aux([13|Rest], Num, NumLines) :-
+    !, Num1 is Num + 1, count_newlines_aux(Rest, Num1, NumLines).
+count_newlines_aux([_|Rest], Num, NumLines) :-
+    count_newlines_aux(Rest, Num, NumLines).
+
+report_singletons(SourceFile, LineNo, Text, Singletons) :-
     filter_singletons(Singletons, Singletons2-[]),
-    report_singletons_aux(SourceFile, LineNo, Term, Vars, Singletons2).
-report_singletons_aux(_, _, _, _, []) :- !.
-report_singletons_aux(SourceFile, LineNo, Term, Vars, Singletons) :-
-    term_string(Term, Str, [variable_names(Vars)]),
-    format(user_error, '[mlpi] ~a:~d: warning: Singletons ~w in ~w.~n',
-           [SourceFile, LineNo, Singletons, Str]).
+    report_singletons_aux(SourceFile, LineNo, Singletons2, Text).
+report_singletons_aux(_, _, [], _) :- !.
+report_singletons_aux(SourceFile, LineNo, Singletons, Text) :-
+    format(user_error, '[mlpi] ~a:~d: warning: Singletons ~w in "~w".~n',
+           [SourceFile, LineNo, Singletons, Text]).
 
 filter_singletons([], Singletons-Singletons2) :-
     Singletons = Singletons2.
@@ -80,30 +110,41 @@ filter_singletons([Name=_|Ss], Singletons-Singletons2) :-
 % ----------------------------------------------------------------------
 % preprocessing for DCG
 % ----------------------------------------------------------------------
-preprocess_term((Head --> Guard | Body), _) :-
-    Pred = (Head --> Guard | Body),
+preprocess_term(
+    term_data((Head --> Guard | Body), _, Text, SourceFile, LineNo),
+    _) :-
     may_be_stream(Guard), may_be_stream(Body),
-    throw(error(invalid_predicate(Pred))).
-preprocess_term((Head --> Guard | Body), (Head2 :- Guard2 | Body2)) :-
+    !,
+    format(user_error, '[mlpi] ~a:~d: invalid predicate: "~a".~n',
+           [SourceFile, LineNo, Text]),
     Pred = (Head --> Guard | Body),
+    throw(error(invalid_predicate(Pred))).
+preprocess_term(
+    term_data((Head --> Guard | Body), NameVars, Text, SourceFile, LineNo),
+    term_data((Head2 :- Guard2 | Body2), NameVars, Text, SourceFile, LineNo)) :-
     may_be_stream(Guard), !,
     debug(mlpi, '~p: ~p', [preprocess_term/2, may_be_stream('Guard' = Guard)]),
+    Pred = (Head --> Guard | Body),
     preprocess_stream(Pred, Guard, In1-In2, Guard2),
     Head =.. [F|Args], append(Args, [In1,In2], Args2),
     Head2 =.. [F|Args2],
     Body2 = Body.
-preprocess_term((Head --> Guard | Body), (Head2 :- Guard2 | Body2)) :-
-    Pred = (Head --> Guard | Body),
+preprocess_term(
+    term_data((Head --> Guard | Body), NameVars, Text, SourceFile, LineNo),
+    term_data((Head2 :- Guard2 | Body2), NameVars, Text, SourceFile, LineNo)) :-
     may_be_stream(Body), !,
     debug(mlpi, '~p: ~p', [preprocess_term/2, may_be_stream('Body' = Body)]),
+    Pred = (Head --> Guard | Body),
     preprocess_stream(Pred, Body, Out1-Out2, Body2),
     Head =.. [F|Args], append(Args, [Out1,Out2], Args2),
     Head2 =.. [F|Args2],
     Guard2 = Guard.
-preprocess_term((Head --> Body), (Head2 :- Body2)) :-
-    Pred = (Head --> Body),
+preprocess_term(
+    term_data((Head --> Body), NameVars, Text, SourceFile, LineNo),
+    term_data((Head2 :- Body2), NameVars, Text, SourceFile, LineNo)) :-
     may_be_stream(Body), !,
     debug(mlpi, '~p: ~p', [preprocess_term/2, may_be_stream('Body' = Body)]),
+    Pred = (Head --> Body),
     preprocess_stream(Pred, Body, Out1-Out2, Body2),
     Head =.. [F|Args], append(Args, [Out1,Out2], Args2),
     Head2 =.. [F|Args2].
@@ -155,154 +196,190 @@ extend_list([V|Values], List-List2) :-
 % ----------------------------------------------------------------------
 % Interpreter
 % ----------------------------------------------------------------------
-mlpi(Terms, Args) :-
-    setup_mlpi_clauses(Terms),
-    mlpi_call(main(Args), main(Args)).
+mlpi(TDList, Args) :-
+    setup_mlpi_clauses(TDList),
+    mlpi_lookup_and_call(main(Args)).
 
 setup_mlpi_clauses([]).
-setup_mlpi_clauses([Term|Terms]) :-
-    ( mlpi_assertz(Term), !
-    ; assertz(mlpi_clauses(Term, true)) ),
-    % debug(mlpi, ':~p', [assertz(Term)]),
-    setup_mlpi_clauses(Terms).
+setup_mlpi_clauses(
+    [TermData|TDList]) :-
+    ( mlpi_assertz(TermData), !
+    ; assertz(mlpi_clauses(TermData, true)) ),
+    setup_mlpi_clauses(TDList).
 
-mlpi_asserta(Term) :-
-    Term = (Head :- Body), asserta(mlpi_clauses(Head, Body)), !.
-mlpi_asserta(Term) :-
-    asserta(mlpi_clauses(Term, true)).
-mlpi_assertz(Term) :-
-    Term = (Head :- Body), assertz(mlpi_clauses(Head, Body)), !.
-mlpi_assertz(Term) :-
-    assertz(mlpi_clauses(Term, true)).
+mlpi_asserta(TermData) :-
+    ( TermData = term_data((_ :- _), _, _, _, _)
+    -> asserta('$__mlpi_clauses__'(TermData))
+    ; TermData = term_data(Term, NameVars, Text, SourceFile, LineNo),
+      TermData2 = term_data(Term :- true, NameVars, Text, SourceFile, LineNo),
+      asserta('$__mlpi_clauses__'(TermData2)) ).
+mlpi_assertz(TermData) :-
+    ( TermData = term_data((_ :- _), _, _, _, _)
+    -> assertz('$__mlpi_clauses__'(TermData))
+    ; TermData = term_data(Term, NameVars, Text, SourceFile, LineNo),
+      TermData2 = term_data(Term :- true, NameVars, Text, SourceFile, LineNo),
+      assertz('$__mlpi_clauses__'(TermData2)) ).
 
-mlpi_abolish(Func, Arity) :-
-    findall((Head :- Body), mlpi_clauses(Head, Body), Clauses),
-    remove_clause(Clauses, Func, Arity, Clauses2),
-    abolish(mlpi_clauses, 2),
-    setup_mlpi_clauses(Clauses2).
+mlpi_abolish(Name, Arity) :-
+    findall(Term,
+            '$__mlpi_clauses__'(term_data(Term, _, _, _, _)), TDList),
+    remove_clause(TDList, Name, Arity, TDList2),
+    abolish('$__mlpi_clauses__', 2),
+    setup_mlpi_clauses(TDList2).
 remove_clause([], _, _, []).
-remove_clause([Clause|Clauses], Func, Arity, Clauses2) :-
-    ( Clause = (Head :- _), functor(Head, Func, Arity) -> Clauses2 = Clauses
-    ; Clauses2 = [Clause|Clauses3], remove_clause(Clauses, Func, Arity, Clauses3) ).
+remove_clause([TermData|TDList], Name, Arity, TDList2) :-
+    ( TermData = term_data(Head :- _, _, _, _), functor(Head, Name, Arity)
+    -> TDList2 = TDList
+    ; TDList2 = [TermData|TDList3],
+      remove_clause(TDList, Name, Arity, TDList3) ).
 
-mlpi_call(Head, (P, Q)) :-
-    mlpi_call(Head, P), mlpi_call(Head, Q).
-mlpi_call(Head, (_ -> _)) :-
-    functor(Head, Name, Arity),
-    throw(error(crash(Name/Arity, compile, '"->" not allowed'),
-                context(Head))).
-mlpi_call(Head, (_ ; _)) :-
-    functor(Head, Name, Arity),
-    throw(error(crash(Name/Arity, compile, '";" not allowed'),
-                context(Head))).
-mlpi_call(Head, !) :-
-    functor(Head, Name, Arity),
-    throw(error(crash(Name/Arity, compile, '"!" not allowed'),
-                context(Head))).
+mlpi_lookup_and_call(Head) :-
+    functor(Head, F, N), functor(Copy, F, N),
+    TermData = term_data(Copy :- GuardBody, _, _, _, _),
+    '$__mlpi_clauses__'(TermData),
+    ( GuardBody = (Guard | Body)
+    -> Head = Copy,
+       mlpi_call_guard(TermData, Guard),
+       mlpi_call_body(TermData, Body)
+    ; Head = Copy,
+      mlpi_call_body(TermData, GuardBody) ).
+get_td_func_arity(term_data(Head :- _, _, _, _, _), Name, Arity) :-
+    functor(Head, Name, Arity).
+get_td_text(term_data(_, _, Text, _, _), Text).
+get_td_position(term_data(_, _, _, SourceFile, LineNo), SourceFile, LineNo).
+
+mlpi_call_guard(TermData, (P, Q)) :-
+    mlpi_call_guard(TermData, P),
+    mlpi_call_guard(TermData, Q).
+mlpi_call_guard(TermData, Head) :-
+    Head = (_ -> _), !,
+    get_td_func_arity(TermData, Name, Arity),
+    get_td_position(TermData, SourceFile, LineNo),
+    throw(error(
+              mlp_error('"->" not allowed'),
+              context(Name/Arity, source(SourceFile, LineNo)))).
+mlpi_call_guard(TermData, Head) :-
+    Head = (_ ; _), !,
+    get_td_func_arity(TermData, Name, Arity),
+    get_td_position(TermData, SourceFile, LineNo),
+    throw(error(
+              mlp_error('";" not allowed'),
+              context(Name/Arity, source(SourceFile, LineNo)))).
+mlpi_call_guard(TermData, Head) :-
+    Head = (_, !, _), !,
+    get_td_func_arity(TermData, Name, Arity),
+    get_td_position(TermData, SourceFile, LineNo),
+    throw(error(
+              mlp_error('"!" not allowed'),
+              context(Name/Arity, source(SourceFile, LineNo)))).
 % built-in predicates
-mlpi_call(_, true).
-mlpi_call(Head, var(A)) :- !, call_(Head, var(A)).
-mlpi_call(Head, nonvar(A)) :- !, call_(Head, nonvar(A)).
-mlpi_call(Head, integer(I)) :- !, call_(Head, integer(I)).
-mlpi_call(Head, A is B) :- !, call_(Head, A is B).
-mlpi_call(Head, A = B) :- !, call_(Head, A = B).
-mlpi_call(Head, A =\= B) :- !, call_(Head, A =\= B).
-mlpi_call(Head, A =:= B) :- !, call_(Head, A =:= B).
-mlpi_call(Head, A < B) :- !, call_(Head, A < B).
-mlpi_call(Head, A > B) :- !, call_(Head, A > B).
-mlpi_call(Head, A =< B) :- !, call_(Head, A =< B).
-mlpi_call(Head, A >= B) :- !, call_(Head, A >= B).
-mlpi_call(Head, F =.. L) :- !, call_(Head, F =.. L).
-mlpi_call(Head, append(A, B, C)) :- !, call_(Head, append(A, B, C)).
-mlpi_call(Head, term_to_atom(T, A)) :- !, call_(Head, term_to_atom(T, A)).
-mlpi_call(Head, atom_chars(A, Cs)) :- !, call_(Head, atom_chars(A, Cs)).
-mlpi_call(Head, atom_concat(A, B, C)) :- !, call_(Head, atom_concat(A, B, C)).
-mlpi_call(Head, atom_number(A, N)) :- !, call_(Head, atom_number(A, N)).
-mlpi_call(Head, term_string(T, S, Opts)) :-
-    !, call_(Head, term_string(T, S, Opts)).
-mlpi_call(Head, functor(Func, Name, Arity)) :-
-    !, call_(Head, functor(Func, Name, Arity)).
-mlpi_call(Head, phrase(P, A, B)) :-
+mlpi_call_guard(_, true).
+mlpi_call_guard(TermData, var(A)) :- !, call_(TermData, var(A)).
+mlpi_call_guard(TermData, nonvar(A)) :- !, call_(TermData, nonvar(A)).
+mlpi_call_guard(TermData, integer(I)) :- !, call_(TermData, integer(I)).
+mlpi_call_guard(TermData, A is B) :- !, call_(TermData, A is B).
+mlpi_call_guard(TermData, A = B) :- !, call_(TermData, A = B).
+mlpi_call_guard(TermData, A =\= B) :- !, call_(TermData, A =\= B).
+mlpi_call_guard(TermData, A =:= B) :- !, call_(TermData, A =:= B).
+mlpi_call_guard(TermData, A < B) :- !, call_(TermData, A < B).
+mlpi_call_guard(TermData, A > B) :- !, call_(TermData, A > B).
+mlpi_call_guard(TermData, A =< B) :- !, call_(TermData, A =< B).
+mlpi_call_guard(TermData, A >= B) :- !, call_(TermData, A >= B).
+mlpi_call_guard(TermData, F =.. L) :- !, call_(TermData, F =.. L).
+mlpi_call_guard(TermData, append(A, B, C)) :- !, call_(TermData, append(A, B, C)).
+mlpi_call_guard(TermData, term_to_atom(T, A)) :- !, call_(TermData, term_to_atom(T, A)).
+mlpi_call_guard(TermData, atom_chars(A, Cs)) :- !, call_(TermData, atom_chars(A, Cs)).
+mlpi_call_guard(TermData, atom_concat(A, B, C)) :- !, call_(TermData, atom_concat(A, B, C)).
+mlpi_call_guard(TermData, atom_number(A, N)) :- !, call_(TermData, atom_number(A, N)).
+mlpi_call_guard(TermData, term_string(T, S, Opts)) :-
+    !, call_(TermData, term_string(T, S, Opts)).
+mlpi_call_guard(TermData, functor(Func, Name, Arity)) :-
+    !, call_(TermData, functor(Func, Name, Arity)).
+mlpi_call_guard(TermData, phrase(P, A, B)) :-
     !,
     P =.. [F|Args],
     append(Args, [A, B], Args2),
     P2 =.. [F|Args2],
-    mlpi_call(Head, P2).
-mlpi_call(Head, debug(Topic)) :- !, call_(Head, debug(Topic)).
-mlpi_call(Head, debug(Topic, Format, Args)) :-
-    !, call_(Head, debug(Topic, Format, Args)).
-mlpi_call(Head, nodebug(Topic)) :- !, call_(Head, nodebug(Topic)).
-mlpi_call(Head, open(F, M, S, Opt)) :- !, call_(Head, open(F, M, S, Opt)).
-mlpi_call(Head, close(S)) :- !, call_(Head, close(S)).
-mlpi_call(Head, stream_property(S, P)) :- !, call_(Head, stream_property(S, P)).
-mlpi_call(Head, stream_position_data(Type, Pos, Val)) :-
-    !, call_(Head, stream_position_data(Type, Pos, Val)).
-mlpi_call(Head, seek(A,B,C,D)) :- !, call_(Head, seek(A,B,C,D)).
-mlpi_call(Head, read_term(S, T, Opt)) :- !, call_(Head, read_term(S, T, Opt)).
-mlpi_call(Head, read_string(S, Len, Text)) :- !, call_(Head, read_string(S, Len, Text)).
-mlpi_call(Head, write(X)) :- !, call_(Head, write(X)).
-mlpi_call(Head, write(Stream, X)) :- !, call_(Head, write(Stream, X)).
-mlpi_call(Head, writeln(X)) :- !, call_(Head, writeln(X)).
-mlpi_call(Head, writeln(Stream, X)) :- !, call_(Head, writeln(Stream, X)).
-mlpi_call(Head, nl) :- !, call_(Head, nl).
-mlpi_call(Head, nl(Stream)) :- !, call_(Head, nl(Stream)).
-mlpi_call(Head, format(Stream, Format, Args)) :-
-    !, call_(Head, format(Stream, Format, Args)).
-mlpi_call(Head, prolog(P)) :- !, call_(Head, P).
-mlpi_call(Head, call(P)) :- !, call_(Head, mlpi_call(call(P), P)).
-mlpi_call(Head, freeze(X, P)) :-
-    !, call_(Head, freeze(X, mlpi_call(freeze(X, P), P))).
-mlpi_call(Head, catch(G, Error, Recover)) :-
-    !, call_(Head, catch(mlpi_call(catch(G, Error, Recover), G), Error,
-                         mlpi_call(catch(G, Error, Recover), Recover))).
-mlpi_call(Head, abolish(Func, Arity)) :-
-    call_(Head, abolish(Func, Arity), mlpi_abolish(Func, Arity)).
-mlpi_call(Head, asserta(Term)) :-
-    call_(Head, asserta(Term), mlpi_asserta(Term)).
-mlpi_call(Head, assertz(Term)) :-
-    call_(Head, assertz(Term), mlpi_assertz(Term)).
-mlpi_call(_, Goal) :-
-    functor(Goal, F, N), functor(Copy, F, N),
-    mlpi_clauses(Copy, GuardBody),
-    ( GuardBody = (Guard | Body)
-    -> Goal = Copy,
-       mlpi_call(Goal, Guard),
-       trust(Goal, Body)
-    ; Goal = Copy,
-      trust(Goal, GuardBody) ).
-call_(Head, DispGoal, RealGoal) :-
-    functor(Head, Name, Arity),
-    ( call(RealGoal)
-    -> debug(mlpi, '~p: ~p',
-             [call_/3, success(Name/Arity, guard, DispGoal)])
-    ; debug(mlpi, '~p: ~p',
-            [call/3, fail(Name/Arity, guard, DispGoal)]),
-      !, fail ).
+    mlpi_call_guard(TermData, P2).
+mlpi_call_guard(TermData, debug(Topic)) :- !, call_(TermData, debug(Topic)).
+mlpi_call_guard(TermData, debug(Topic, Format, Args)) :-
+    !, call_(TermData, debug(Topic, Format, Args)).
+mlpi_call_guard(TermData, nodebug(Topic)) :- !, call_(TermData, nodebug(Topic)).
+mlpi_call_guard(TermData, open(F, M, S, Opt)) :- !, call_(TermData, open(F, M, S, Opt)).
+mlpi_call_guard(TermData, close(S)) :- !, call_(TermData, close(S)).
+mlpi_call_guard(TermData, stream_property(S, P)) :- !, call_(TermData, stream_property(S, P)).
+mlpi_call_guard(TermData, stream_position_data(Type, Pos, Val)) :-
+    !, call_(TermData, stream_position_data(Type, Pos, Val)).
+mlpi_call_guard(TermData, seek(A,B,C,D)) :- !, call_(TermData, seek(A,B,C,D)).
+mlpi_call_guard(TermData, read_term(S, T, Opt)) :- !, call_(TermData, read_term(S, T, Opt)).
+mlpi_call_guard(TermData, read_string(S, Len, Text)) :- !, call_(TermData, read_string(S, Len, Text)).
+mlpi_call_guard(TermData, write(X)) :- !, call_(TermData, write(X)).
+mlpi_call_guard(TermData, write(Stream, X)) :- !, call_(TermData, write(Stream, X)).
+mlpi_call_guard(TermData, writeln(X)) :- !, call_(TermData, writeln(X)).
+mlpi_call_guard(TermData, writeln(Stream, X)) :- !, call_(TermData, writeln(Stream, X)).
+mlpi_call_guard(TermData, nl) :- !, call_(TermData, nl).
+mlpi_call_guard(TermData, nl(Stream)) :- !, call_(TermData, nl(Stream)).
+mlpi_call_guard(TermData, format(Stream, Format, Args)) :-
+    !, call_(TermData, format(Stream, Format, Args)).
+mlpi_call_guard(TermData, prolog(P)) :- !, call_(TermData, P).
+mlpi_call_guard(TermData, call(P)) :- !, call_(TermData, mlpi_call_guard(call(P), P)).
+mlpi_call_guard(TermData, freeze(X, P)) :-
+    !, call_(TermData, freeze(X, mlpi_call_guard(freeze(X, P), P))).
+mlpi_call_guard(TermData, catch(G, Error, Recover)) :-
+    !, call_(TermData, catch(mlpi_call_guard(catch(G, Error, Recover), G), Error,
+                         mlpi_call_guard(catch(G, Error, Recover), Recover))).
+mlpi_call_guard(TermData, abolish(Name, Arity)) :-
+    call_(TermData, abolish(Name, Arity), mlpi_abolish(Name, Arity)).
+mlpi_call_guard(TermData, asserta(Term)) :-
+    call_(TermData, asserta(Term), mlpi_asserta(Term)).
+mlpi_call_guard(TermData, assertz(Term)) :-
+    call_(TermData, assertz(Term), mlpi_assertz(Term)).
+mlpi_call_guard(_, Goal) :-
+    mlpi_lookup_and_call(Goal).
 call_(Head, Goal) :-
-    functor(Head, Name, Arity),
-    ( call(Goal)
-    -> debug(mlpi, '~p: ~p',
-             [call_/2, success(Name/Arity, guard, Goal)])
-    ; debug(mlpi, '~p: ~p',
-            [call_2, fail(Name/Arity, guard, Goal)]),
+    call_(Head, Goal, Goal).
+call_(TermData, DispGoal, RealGoal) :-
+    get_td_func_arity(TermData, Name, Arity),
+    get_td_position(TermData, SourceFile, LineNo),
+    ( call(RealGoal)
+    -> debug(mlpi, '[mlpi] ~a:~d: ~p: ~p',
+             [SourceFile, LineNo, call_/3,
+              success(Name/Arity, guard, DispGoal)])
+    ; debug(mlpi, '[mlpi] ~a:~d: ~p: ~p',
+            [SourceFile, LineNo, call/3,
+             fail(Name/Arity, guard, DispGoal)]),
       !, fail ).
-trust(Head, (P, Q)) :- trust(Head, P), trust(Head, Q).
-trust(Head, (_ -> _)) :-
-    functor(Head, Name, Arity),
-    throw(error(crash(Name/Arity, compile, '"->" not allowed'),
-                context(Head))).
-trust(Head, (_ ; _)) :-
-    functor(Head, Name, Arity),
-    throw(error(crash(Name/Arity, compile, '";" not allowed'),
-                context(Head))).
-trust(Head, !) :-
-    functor(Head, Name, Arity),
-    throw(error(crash(Name/Arity, compile, '"!" not allowed'),
-                context(Head))).
-trust(_, true).
-trust(Head, P) :-
-    functor(Head, Name, Arity),
-    ( mlpi_call(Head, P) ->
-      debug(mlpi, '~p: ~p', [trust/2, success(Name/Arity, body, P)])
-    ; throw(error(crash(Name/Arity, body, P),
-                  context(Head, P))) ).
+mlpi_call_body(TermData, (P, Q)) :-
+    mlpi_call_body(TermData, P),
+    mlpi_call_body(TermData, Q).
+mlpi_call_body(TermData, Head) :-
+    Head = (_ -> _), !,
+    get_td_func_arity(TermData, Name, Arity),
+    get_td_position(TermData, SourceFile, LineNo),
+    throw(error(
+              mlp_error('"->" not allowed'),
+              context(Name/Arity, source(SourceFile, LineNo)))).
+mlpi_call_body(TermData, Head) :-
+    Head = (_ ; _), !,
+    get_td_func_arity(TermData, Name, Arity),
+    get_td_position(TermData, SourceFile, LineNo),
+    throw(error(
+              mlp_error('";" not allowed'),
+              context(Name/Arity, source(SourceFile, LineNo)))).
+mlpi_call_body(TermData, Head) :-
+    Head = (_, !, _), !,
+    get_td_func_arity(TermData, Name, Arity),
+    get_td_position(TermData, SourceFile, LineNo),
+    throw(error(
+              mlp_error('"!" not allowed'),
+              context(Name/Arity, source(SourceFile, LineNo)))).
+mlpi_call_body(_, true).
+mlpi_call_body(TermData, P) :-
+    get_td_func_arity(TermData, Name, Arity),
+    get_td_position(TermData, SourceFile, LineNo),
+    ( mlpi_call_guard(TermData, P) ->
+      debug(mlpi, '[mlpi] ~a:~d: ~p: ~p',
+            [SourceFile, LineNo, mlpi_call_body/2, success(Name/Arity, body, P)])
+    ; throw(error(
+                mlp_error(body_failed(P)),
+                context(Name/Arity, source(SourceFile, LineNo)))) ).
