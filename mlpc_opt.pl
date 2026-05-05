@@ -46,24 +46,18 @@ write_term_data([A|B],C):-A=term_data(D,E,_,_,_),!,debug(translate,'~p: ~p',[wri
 ],!,write_term_data(B,F).
 load_term_data([],A-A) :- !.
 load_term_data([A|B],C-D):-!,open(A,read,E,[encoding(utf8)]),!,read_all_terms(A,E,C-F,0),!,close(E),!,load_term_data(B,F-D).
-read_all_terms(A,B,C-D,E):-!,stream_property(B,position(F)),!,read_single_term(A,E,B,G,H,I),!,stream_property(B,position(J)),!,read_source_span(B,F,J,K),!,report_singletons(A,E,K,I),!,read_all_terms_aux(G,H,K,A,E,B,C-D).
+read_all_terms(A,B,C-D,E):-!,stream_property(B,position(F)),!,read_single_term(A,E,B,G,H,I),!,stream_property(B,position(J)),!,read_source_span(A,F,J,K),!,report_singletons(A,E,K,I),!,read_all_terms_aux(G,H,K,A,E,B,J,C-D).
 read_single_term(_,_,A,B,C,D):-read_term(A,B,[variable_names(C),singletons(D),syntax_errors(dec10)]),!,true.
 read_single_term(A,B,_,_,_,_):-!,format(user_error,'[mlpc] ~a:~d: failed to read term~n',[A,B]).
-read_all_terms_aux(A,_,_,_,_,_,B-C) :- A=end_of_file,!,B=C.
-read_all_terms_aux(A,_,_,B,_,C,D-E):-A=otherwise,!,count_newlines(C,F),!,read_all_terms(B,C,D-E,F).
-read_all_terms_aux(A,B,C,D,E,F,G-H):-!,G=[term_data(A,B,C,D,E)|I],!,count_newlines(F,J),!,read_all_terms(D,F,I-H,J).
-read_source_span(A,B,C,D):-!,stream_position_data(char_count,B,E),!,stream_position_data(char_count,C,F),!,G is F-E,!,seek(A,E,bof,_),!,read_string(A,G,D).
-read_source_from_begin_to_current(A,B):-!,stream_property(A,position(C)),!,stream_position_data(char_count,C,D),!,seek(A,0,bof,_),!,read_string(A,D,B).
-count_newlines(A,B):-!,read_source_from_begin_to_current(A,C),!,string_codes(C,D),!,count_newlines_aux(D,2,B).
-count_newlines_aux([],A,A) :- !.
-count_newlines_aux([10|A],B,C) :- !,D is B+1,!,count_newlines_aux(A,D,C).
-count_newlines_aux([13,10|A],B,C):-!,D is B+1,!,count_newlines_aux(A,D,C).
-count_newlines_aux([13|A],B,C) :- !,D is B+1,!,count_newlines_aux(A,D,C).
-count_newlines_aux([_|A],B,C) :- !,count_newlines_aux(A,B,C).
+read_all_terms_aux(A,_,_,_,_,_,_,B-C) :- A=end_of_file,!,B=C.
+read_all_terms_aux(A,_,_,B,_,C,D,E-F):-A=otherwise,!,get_line_count(D,G),!,read_all_terms(B,C,E-F,G).
+read_all_terms_aux(A,B,C,D,E,F,G,H-I):-!,H=[term_data(A,B,C,D,E)|J],!,get_line_count(G,K),!,read_all_terms(D,F,J-I,K).
+read_source_span(A,B,C,D):-!,stream_position_data(char_count,B,E),!,stream_position_data(char_count,C,F),!,G is F-E,!,open(A,read,H,[encoding(utf8)]),!,seek(H,E,bof,_),!,read_string(H,G,D),!,close(H).
+get_line_count(A,B) :- !,stream_position_data(line_count,A,C),!,B is C+1.
 report_singletons(A,B,C,D):-!,filter_singletons(D,E-[]),!,report_singletons_aux(A,B,E,C).
 report_singletons_aux(_,_,[],_) :- !.
 report_singletons_aux(A,B,C,D):-!,format(user_error,
-	   '[mlpc] ~a:~d: warning: Singletons ~w in ~a.~n',
+	   '[mlpc] ~a:~d: warning: Singletons ~w in "~w".~n',
 	   [A,B,C,D]).
 filter_singletons([],A-B) :- !,A=B.
 filter_singletons([A=_|B],C-D):-(atom_chars(A,E),E=['_'|_]),!,filter_singletons(B,C-D).

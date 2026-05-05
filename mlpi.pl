@@ -25,6 +25,12 @@ writeall([T|Ts]) :- writeln(T), writeall(Ts).
 parse_args(['-h' | _], _, _) :-
     !, format(user_error, 'usage: mlpi <SourceFile..> [-- <Args>]', []), halt.
 parse_args(['-d' | Argv], SourceFiles, Args) :-
+    !, debug(main), debug(mlpi),
+    parse_args(Argv, SourceFiles, Args).
+parse_args(['-d_main' | Argv], SourceFiles, Args) :-
+    !, debug(main),
+    parse_args(Argv, SourceFiles, Args).
+parse_args(['-d_mlpi' | Argv], SourceFiles, Args) :-
     !, debug(mlpi),
     parse_args(Argv, SourceFiles, Args).
 parse_args(['--' | Argv], [], Args) :-
@@ -47,18 +53,20 @@ read_all_terms(SourceFile, Stream, TDList-TDList2, LineNo) :-
     stream_property(Stream, position(StartPos)),
     read_single_term(SourceFile, Stream, Term, NameVars, Singletons, LineNo),
     stream_property(Stream, position(EndPos)),
-    read_source_span(Stream, StartPos, EndPos, Text),
-    debug(main, '~p: ~p', [read_all_terms/4, read_term(TermData)]),
+    read_source_span(SourceFile, StartPos, EndPos, Text),
     report_singletons(SourceFile, LineNo, Text, Singletons),
     ( Term = end_of_file -> TDList = TDList2
     ; Term = otherwise ->
-      count_newlines(Stream, LineNo2),
+      get_line_count(EndPos, LineNo2),
       read_all_terms(SourceFile, Stream, TDList-TDList2, LineNo2)
     ; TermData = term_data(Term, NameVars, Text, SourceFile, LineNo),
+      debug(main, '~p [~a:~d]: ~p',
+            [read_all_terms/4, SourceFile, LineNo, read_term(TermData)]),
       preprocess_term(TermData, PreprocessedTermData),
       TDList = [PreprocessedTermData|TDList1],
-      count_newlines(Stream, LineNo2),
+      get_line_count(EndPos, LineNo2),
       read_all_terms(SourceFile, Stream, TDList1-TDList2, LineNo2) ).
+
 read_single_term(SourceFile, Stream, Term, NameVars, Singletons, LineNo) :-
     ( read_term(Stream, Term,
                 [variable_names(NameVars),
@@ -66,31 +74,18 @@ read_single_term(SourceFile, Stream, Term, NameVars, Singletons, LineNo) :-
     ; format(user_error, '[mlpi] ~a:~d: failed to read term~n',
              [SourceFile, LineNo]) ).
 
-read_source_span(Stream, StartPos, EndPos, Source) :-
+read_source_span(SourceFile, StartPos, EndPos, SourceText) :-
     stream_position_data(char_count, StartPos, StartChar),
     stream_position_data(char_count, EndPos, EndChar),
     Length is EndChar - StartChar,
-    seek(Stream, StartChar, bof, _),
-    read_string(Stream, Length, Source).
+    open(SourceFile, read, Stream2, [encoding(utf8)]),
+    seek(Stream2, StartChar, bof, _),
+    read_string(Stream2, Length, SourceText),
+    close(Stream2).
 
-read_source_from_begin_to_current(Stream, Text) :-
-    stream_property(Stream, position(EndPos)),
-    stream_position_data(char_count, EndPos, Length),
-    seek(Stream, 0, bof, _),
-    read_string(Stream, Length, Text).
-count_newlines(Stream, NumLines) :-
-    read_source_from_begin_to_current(Stream, Text),
-    string_codes(Text, Codes),
-    count_newlines_aux(Codes, 2, NumLines).
-count_newlines_aux([], Num, Num).
-count_newlines_aux([10|Rest], Num, NumLines) :-
-    !, Num1 is Num + 1, count_newlines_aux(Rest, Num1, NumLines).
-count_newlines_aux([13,10|Rest], Num, NumLines) :-
-    !, Num1 is Num + 1, count_newlines_aux(Rest, Num1, NumLines).
-count_newlines_aux([13|Rest], Num, NumLines) :-
-    !, Num1 is Num + 1, count_newlines_aux(Rest, Num1, NumLines).
-count_newlines_aux([_|Rest], Num, NumLines) :-
-    count_newlines_aux(Rest, Num, NumLines).
+get_line_count(Pos, LineCountOfPos) :-
+    stream_position_data(line_count, Pos, Lines),
+    LineCountOfPos is Lines + 1.
 
 report_singletons(SourceFile, LineNo, Text, Singletons) :-
     filter_singletons(Singletons, Singletons2-[]),

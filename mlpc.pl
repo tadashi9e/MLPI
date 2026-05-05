@@ -232,11 +232,11 @@ read_all_terms(A,B,C-D,E):-!,'$__body__'('src/mlpc.mlp':145,
 			read_all_terms(A,B,C-D,E),
 			stream_property(B,position(J))),!,'$__body__'('src/mlpc.mlp':145,
 			read_all_terms(A,B,C-D,E),
-			read_source_span(B,F,J,K)),!,'$__body__'('src/mlpc.mlp':145,
+			read_source_span(A,F,J,K)),!,'$__body__'('src/mlpc.mlp':145,
 			read_all_terms(A,B,C-D,E),
 			report_singletons(A,E,K,I)),!,'$__body__'('src/mlpc.mlp':145,
 			read_all_terms(A,B,C-D,E),
-			read_all_terms_aux(G,H,K,A,E,B,C-D)).
+			read_all_terms_aux(G,H,K,A,E,B,J,C-D)).
 read_single_term(A,B,C,D,E,F):-'$__guard__'('src/mlpc.mlp':154,
 			 read_single_term(A,B,C,D,E,F),
 			 read_term(C,
@@ -250,83 +250,61 @@ read_single_term(A,B,C,D,E,F):-!,'$__body__'('src/mlpc.mlp':161,
 			format(user_error,
 				   '[mlpc] ~a:~d: failed to read term~n',
 				   [A,B])).
-read_all_terms_aux(A,B,C,D,E,F,G-H):-'$__guard__'('src/mlpc.mlp':164,
-			 read_all_terms_aux(A,B,C,D,E,F,G-H),
-			 A=end_of_file),!,'$__body__'('src/mlpc.mlp':164,read_all_terms_aux(A,B,C,D,E,F,G-H),G=H).
-read_all_terms_aux(A,B,C,D,E,F,G-H):-'$__guard__'('src/mlpc.mlp':167,
-			 read_all_terms_aux(A,B,C,D,E,F,G-H),
+read_all_terms_aux(A,B,C,D,E,F,G,H-I):-'$__guard__'('src/mlpc.mlp':164,
+			 read_all_terms_aux(A,B,C,D,E,F,G,H-I),
+			 A=end_of_file),!,'$__body__'('src/mlpc.mlp':164,
+			read_all_terms_aux(A,B,C,D,E,F,G,H-I),
+			H=I).
+read_all_terms_aux(A,B,C,D,E,F,G,H-I):-'$__guard__'('src/mlpc.mlp':167,
+			 read_all_terms_aux(A,B,C,D,E,F,G,H-I),
 			 A=otherwise),!,'$__body__'('src/mlpc.mlp':167,
-			read_all_terms_aux(A,B,C,D,E,F,G-H),
-			count_newlines(F,I)),!,'$__body__'('src/mlpc.mlp':167,
-			read_all_terms_aux(A,B,C,D,E,F,G-H),
-			read_all_terms(D,F,G-H,I)).
-read_all_terms_aux(A,B,C,D,E,F,G-H):-!,'$__body__'('src/mlpc.mlp':171,
-			read_all_terms_aux(A,B,C,D,E,F,G-H),
-			G=[term_data(A,B,C,D,E)|I]),!,'$__body__'('src/mlpc.mlp':171,
-			read_all_terms_aux(A,B,C,D,E,F,G-H),
-			count_newlines(F,J)),!,'$__body__'('src/mlpc.mlp':171,
-			read_all_terms_aux(A,B,C,D,E,F,G-H),
-			read_all_terms(D,F,I-H,J)).
+			read_all_terms_aux(A,B,C,D,E,F,G,H-I),
+			get_line_count(G,J)),!,'$__body__'('src/mlpc.mlp':167,
+			read_all_terms_aux(A,B,C,D,E,F,G,H-I),
+			read_all_terms(D,F,H-I,J)).
+read_all_terms_aux(A,B,C,D,E,F,G,H-I):-!,'$__body__'('src/mlpc.mlp':171,
+			read_all_terms_aux(A,B,C,D,E,F,G,H-I),
+			H=[term_data(A,B,C,D,E)|J]),!,'$__body__'('src/mlpc.mlp':171,
+			read_all_terms_aux(A,B,C,D,E,F,G,H-I),
+			get_line_count(G,K)),!,'$__body__'('src/mlpc.mlp':171,
+			read_all_terms_aux(A,B,C,D,E,F,G,H-I),
+			read_all_terms(D,F,J-I,K)).
 read_source_span(A,B,C,D):-!,'$__body__'('src/mlpc.mlp':176,
 			read_source_span(A,B,C,D),
 			stream_position_data(char_count,B,E)),!,'$__body__'('src/mlpc.mlp':176,
 			read_source_span(A,B,C,D),
 			stream_position_data(char_count,C,F)),!,'$__body__'('src/mlpc.mlp':176,read_source_span(A,B,C,D),G is F-E),!,'$__body__'('src/mlpc.mlp':176,
 			read_source_span(A,B,C,D),
-			seek(A,E,bof,_)),!,'$__body__'('src/mlpc.mlp':176,
+			open(A,read,H,[encoding(utf8)])),!,'$__body__'('src/mlpc.mlp':176,
 			read_source_span(A,B,C,D),
-			read_string(A,G,D)).
-read_source_from_begin_to_current(A,B):-!,'$__body__'('src/mlpc.mlp':183,
-			read_source_from_begin_to_current(A,B),
-			stream_property(A,position(C))),!,'$__body__'('src/mlpc.mlp':183,
-			read_source_from_begin_to_current(A,B),
-			stream_position_data(char_count,C,D)),!,'$__body__'('src/mlpc.mlp':183,
-			read_source_from_begin_to_current(A,B),
-			seek(A,0,bof,_)),!,'$__body__'('src/mlpc.mlp':183,
-			read_source_from_begin_to_current(A,B),
-			read_string(A,D,B)).
-count_newlines(A,B):-!,'$__body__'('src/mlpc.mlp':189,
-			count_newlines(A,B),
-			read_source_from_begin_to_current(A,C)),!,'$__body__'('src/mlpc.mlp':189,count_newlines(A,B),string_codes(C,D)),!,'$__body__'('src/mlpc.mlp':189,
-			count_newlines(A,B),
-			count_newlines_aux(D,2,B)).
-count_newlines_aux([],A,A) :- !.
-count_newlines_aux([10|A],B,C):-!,'$__body__'('src/mlpc.mlp':194,count_newlines_aux([10|A],B,C),D is B+1),!,'$__body__'('src/mlpc.mlp':194,
-			count_newlines_aux([10|A],B,C),
-			count_newlines_aux(A,D,C)).
-count_newlines_aux([13,10|A],B,C):-!,'$__body__'('src/mlpc.mlp':196,
-			count_newlines_aux([13,10|A],B,C),
-			D is B+1),!,'$__body__'('src/mlpc.mlp':196,
-			count_newlines_aux([13,10|A],B,C),
-			count_newlines_aux(A,D,C)).
-count_newlines_aux([13|A],B,C):-!,'$__body__'('src/mlpc.mlp':198,count_newlines_aux([13|A],B,C),D is B+1),!,'$__body__'('src/mlpc.mlp':198,
-			count_newlines_aux([13|A],B,C),
-			count_newlines_aux(A,D,C)).
-count_newlines_aux([A|B],C,D):-!,'$__body__'('src/mlpc.mlp':200,
-			count_newlines_aux([A|B],C,D),
-			count_newlines_aux(B,C,D)).
-report_singletons(A,B,C,D):-!,'$__body__'('src/mlpc.mlp':202,
+			seek(H,E,bof,_)),!,'$__body__'('src/mlpc.mlp':176,
+			read_source_span(A,B,C,D),
+			read_string(H,G,D)),!,'$__body__'('src/mlpc.mlp':176,read_source_span(A,B,C,D),close(H)).
+get_line_count(A,B):-!,'$__body__'('src/mlpc.mlp':185,
+			get_line_count(A,B),
+			stream_position_data(line_count,A,C)),!,'$__body__'('src/mlpc.mlp':185,get_line_count(A,B),B is C+1).
+report_singletons(A,B,C,D):-!,'$__body__'('src/mlpc.mlp':189,
 			report_singletons(A,B,C,D),
-			filter_singletons(D,E-[])),!,'$__body__'('src/mlpc.mlp':202,
+			filter_singletons(D,E-[])),!,'$__body__'('src/mlpc.mlp':189,
 			report_singletons(A,B,C,D),
 			report_singletons_aux(A,B,E,C)).
 report_singletons_aux(_,_,[],_) :- !.
-report_singletons_aux(A,B,C,D):-!,'$__body__'('src/mlpc.mlp':209,
+report_singletons_aux(A,B,C,D):-!,'$__body__'('src/mlpc.mlp':196,
 			report_singletons_aux(A,B,C,D),
 			format(user_error,
-				   '[mlpc] ~a:~d: warning: Singletons ~w in ~a.~n',
+				   '[mlpc] ~a:~d: warning: Singletons ~w in "~w".~n',
 				   [A,B,C,D])).
-filter_singletons([],A-B):-!,'$__body__'('src/mlpc.mlp':212,filter_singletons([],A-B),A=B).
-filter_singletons([A=B|C],D-E):-( '$__guard__'('src/mlpc.mlp':215,
+filter_singletons([],A-B):-!,'$__body__'('src/mlpc.mlp':199,filter_singletons([],A-B),A=B).
+filter_singletons([A=B|C],D-E):-( '$__guard__'('src/mlpc.mlp':202,
 			   filter_singletons([A=B|C],D-E),
 			   atom_chars(A,F)),
-  '$__guard__'('src/mlpc.mlp':215,
+  '$__guard__'('src/mlpc.mlp':202,
 			   filter_singletons([A=B|C],D-E),
 			   F=['_'|_])
-),!,'$__body__'('src/mlpc.mlp':215,
+),!,'$__body__'('src/mlpc.mlp':202,
 			filter_singletons([A=B|C],D-E),
 			filter_singletons(C,D-E)).
-filter_singletons([A=B|C],D-E):-!,'$__body__'('src/mlpc.mlp':220,filter_singletons([A=B|C],D-E),D=[A|F]),!,'$__body__'('src/mlpc.mlp':220,
+filter_singletons([A=B|C],D-E):-!,'$__body__'('src/mlpc.mlp':207,filter_singletons([A=B|C],D-E),D=[A|F]),!,'$__body__'('src/mlpc.mlp':207,
 			filter_singletons([A=B|C],D-E),
 			filter_singletons(C,F-E)).
 A:=B :- !,'$__body__'('builtin.mlp':0,A:=B,A is B).
